@@ -1,0 +1,73 @@
+2026/01/10 23:15:18 danser-go version: 0.11.0
+2026/01/10 23:15:18 Checking Github for a new version of danser...
+2026/01/10 23:15:19 You're using the newest version of danser.
+2026/01/10 23:15:19 SettingsManager: Loading "/home/aza/danser/settings/default.json"
+2026/01/10 23:15:19 SettingsManager: "/home/aza/danser/settings/default.json" loaded!
+2026/01/10 23:15:19 ApiConnector: Loading "/home/aza/danser/settings/credentials.json"
+2026/01/10 23:15:19 panic: SettingsManager: Failed to parse the patch! Please re-check the sPatch argument for mistakes and ensure that quotation marks are escaped. Error: invalid character '/' looking for beginning of value
+2026/01/10 23:15:19 goroutine 17 [running, locked to thread]:
+2026/01/10 23:15:19 github.com/wieku/danser-go/app/settings.LoadPatch()
+2026/01/10 23:15:19 	github.com/wieku/danser-go/app/settings/manager.go:82 +0x97
+2026/01/10 23:15:19 github.com/wieku/danser-go/app.run.func2()
+2026/01/10 23:15:19 	github.com/wieku/danser-go/app/app.go:292 +0x11cf
+2026/01/10 23:15:19 github.com/wieku/danser-go/app.run.CallMain.func3()
+2026/01/10 23:15:19 	github.com/wieku/danser-go/framework/goroutines/mainthread.go:114 +0x22
+2026/01/10 23:15:19 github.com/wieku/danser-go/framework/goroutines.RunMain(0x777cccf15b30)
+2026/01/10 23:15:19 	github.com/wieku/danser-go/framework/goroutines/mainthread.go:51 +0x132
+2026/01/10 23:15:19 github.com/wieku/danser-go/app.Run()
+2026/01/10 23:15:19 	github.com/wieku/danser-go/app/app.go:912 +0x7f
+2026/01/10 23:15:19 main.danserMain(0x0, {0x20a1b5f0?, 0x0?, 0x777ccc12dc01?})
+2026/01/10 23:15:19 	github.com/wieku/danser-go/mainshared.go:20 +0x70
+2026/01/10 23:15:19 
+2026/01/10 23:15:19 goroutine 6 [chan receive, locked to thread]:
+2026/01/10 23:15:19 github.com/wieku/danser-go/framework/goroutines.CallMain(...)
+2026/01/10 23:15:19 	github.com/wieku/danser-go/framework/goroutines/mainthread.go:118
+2026/01/10 23:15:19 github.com/wieku/danser-go/app.run()
+2026/01/10 23:15:19 	github.com/wieku/danser-go/app/app.go:88 +0xb6
+2026/01/10 23:15:19 github.com/wieku/danser-go/framework/goroutines.RunMain.func1()
+2026/01/10 23:15:19 	github.com/wieku/danser-go/framework/goroutines/mainthread.go:44 +0x2f
+2026/01/10 23:15:19 created by github.com/wieku/danser-go/framework/goroutines.RunMain in goroutine 17
+2026/01/10 23:15:19 	github.com/wieku/danser-go/framework/goroutines/mainthread.go:42 +0x126
+2026/01/10 23:15:19 
+2026/01/10 23:15:19 goroutine 14 [IO wait]:
+2026/01/10 23:15:19 internal/poll.runtime_pollWait(0x777cc8c47db8, 0x72)
+2026/01/10 23:15:19 	runtime/netpoll.go:351 +0x85
+2026/01/10 23:15:19 internal/poll.(*pollDesc).wait(0xc000230100?, 0xc00015e000?, 0x0)
+2026/01/10 23:15:19 	internal/poll/fd_poll_runtime.go:84 +0x27
+2026/01/10 23:15:19 internal/poll.(*pollDesc).waitRead(...)
+2026/01/10 23:15:19 	internal/poll/fd_poll_runtime.go:89
+2026/01/10 23:15:19 internal/poll.(*FD).Read(0xc000230100, {0xc00015e000, 0x1300, 0x1300})
+2026/01/10 23:15:19 	internal/poll/fd_unix.go:165 +0x27a
+2026/01/10 23:15:19 net.(*netFD).Read(0xc000230100, {0xc00015e000?, 0x0?, 0xd8b?})
+2026/01/10 23:15:19 	net/fd_posix.go:55 +0x25
+2026/01/10 23:15:19 net.(*conn).Read(0xc0000682b0, {0xc00015e000?, 0x777cc8c05228?, 0x777cc8ec4108?})
+2026/01/10 23:15:19 	net/net.go:194 +0x45
+2026/01/10 23:15:19 crypto/tls.(*atLeastReader).Read(0xc00014f8f0, {0xc00015e000?, 0x8?, 0x777cc8c05228?})
+2026/01/10 23:15:19 	crypto/tls/conn.go:809 +0x3b
+2026/01/10 23:15:19 bytes.(*Buffer).ReadFrom(0xc0000c9438, {0x777cccf24580, 0xc00014f8f0})
+2026/01/10 23:15:19 	bytes/buffer.go:211 +0x98
+2026/01/10 23:15:19 crypto/tls.(*Conn).readFromUntil(0xc0000c9188, {0x777cccf247a0, 0xc0000682b0}, 0x777ccc0f1474?)
+2026/01/10 23:15:19 	crypto/tls/conn.go:831 +0xde
+2026/01/10 23:15:19 crypto/tls.(*Conn).readRecordOrCCS(0xc0000c9188, 0x0)
+2026/01/10 23:15:19 	crypto/tls/conn.go:629 +0x3cf
+2026/01/10 23:15:19 crypto/tls.(*Conn).readRecord(...)
+2026/01/10 23:15:19 	crypto/tls/conn.go:591
+2026/01/10 23:15:19 crypto/tls.(*Conn).Read(0xc0000c9188, {0xc000159000, 0x1000, 0xc000238000?})
+2026/01/10 23:15:19 	crypto/tls/conn.go:1385 +0x145
+2026/01/10 23:15:19 bufio.(*Reader).Read(0xc000594e40, {0xc000580c80, 0x9, 0x777ccd629e30?})
+2026/01/10 23:15:19 	bufio/bufio.go:245 +0x197
+2026/01/10 23:15:19 io.ReadAtLeast({0x777cccf235a0, 0xc000594e40}, {0xc000580c80, 0x9, 0x9}, 0x9)
+2026/01/10 23:15:19 	io/io.go:335 +0x91
+2026/01/10 23:15:19 io.ReadFull(...)
+2026/01/10 23:15:19 	io/io.go:354
+2026/01/10 23:15:19 net/http.http2readFrameHeader({0xc000580c80, 0x9, 0xc000186330?}, {0x777cccf235a0?, 0xc000594e40?})
+2026/01/10 23:15:19 	net/http/h2_bundle.go:1805 +0x65
+2026/01/10 23:15:19 net/http.(*http2Framer).ReadFrame(0xc000580c40)
+2026/01/10 23:15:19 	net/http/h2_bundle.go:2072 +0x7d
+2026/01/10 23:15:19 net/http.(*http2clientConnReadLoop).run(0xc000074fa8)
+2026/01/10 23:15:19 	net/http/h2_bundle.go:9933 +0xda
+2026/01/10 23:15:19 net/http.(*http2ClientConn).readLoop(0xc0004ace00)
+2026/01/10 23:15:19 	net/http/h2_bundle.go:9812 +0x79
+2026/01/10 23:15:19 created by net/http.(*http2Transport).newClientConn in goroutine 13
+2026/01/10 23:15:19 	net/http/h2_bundle.go:8334 +0xde5
+2026/01/10 23:15:19 
