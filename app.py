@@ -230,6 +230,17 @@ def list_skins():
         if os.path.isdir(os.path.join(SKINS_DIR, d))
     ])
 
+@app.get("/jobs")
+def get_jobs():
+    return {
+        job_id: {
+            "status": job["status"],
+            "percent": job.get("percent", 0),
+            "error": job.get("error"),
+        }
+        for job_id, job in jobs.items()
+    }
+
 @app.post("/render")
 async def render(
     replay: UploadFile = File(...),
