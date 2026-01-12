@@ -17,7 +17,7 @@ from fastapi import (
     HTTPException,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 
 # ================== PATHS ==================
 
@@ -219,7 +219,389 @@ async def startup():
 
 @app.get("/")
 def root():
-    return {"status": "danser api online"}
+    return {"status": "danser api online", "docs": "/docs"}
+
+@app.get("/docs", response_class=HTMLResponse)
+def docs():
+    return """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>OsuRender API Documentation</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background: linear-gradient(135deg, #0d0d0d 0%, #1a1a1a 100%);
+                color: #e0e0e0;
+                line-height: 1.6;
+            }
+            .header {
+                background: linear-gradient(90deg, #ff66aa 0%, #ff4488 100%);
+                padding: 30px 20px;
+                text-align: center;
+                box-shadow: 0 4px 20px rgba(255, 102, 170, 0.3);
+            }
+            .header h1 {
+                color: white;
+                font-size: 2.5rem;
+                text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            }
+            .header p {
+                color: #ffe0ee;
+                font-size: 1.1rem;
+                margin-top: 10px;
+            }
+            .container {
+                max-width: 1200px;
+                margin: 40px auto;
+                padding: 0 20px;
+            }
+            .section {
+                background: #242424;
+                border-radius: 12px;
+                padding: 30px;
+                margin-bottom: 30px;
+                border: 1px solid #333;
+                box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+            }
+            .section h2 {
+                color: #ff66aa;
+                font-size: 1.8rem;
+                margin-bottom: 20px;
+                padding-bottom: 10px;
+                border-bottom: 2px solid #ff66aa;
+            }
+            .section h3 {
+                color: #ff88bb;
+                font-size: 1.4rem;
+                margin: 20px 0 10px 0;
+            }
+            .endpoint {
+                background: #1a1a1a;
+                border-left: 4px solid #ff66aa;
+                padding: 20px;
+                margin: 15px 0;
+                border-radius: 8px;
+            }
+            .method {
+                display: inline-block;
+                padding: 5px 12px;
+                border-radius: 5px;
+                font-weight: bold;
+                margin-right: 10px;
+                font-size: 0.9rem;
+            }
+            .get { background: #4caf50; color: white; }
+            .post { background: #ff9800; color: white; }
+            .path {
+                font-family: 'Courier New', monospace;
+                color: #ff66aa;
+                font-size: 1.1rem;
+                font-weight: bold;
+            }
+            .description {
+                margin: 15px 0;
+                color: #c0c0c0;
+            }
+            code {
+                background: #1a1a1a;
+                padding: 2px 8px;
+                border-radius: 4px;
+                color: #ff88bb;
+                font-family: 'Courier New', monospace;
+            }
+            pre {
+                background: #0d0d0d;
+                padding: 15px;
+                border-radius: 8px;
+                overflow-x: auto;
+                margin: 10px 0;
+                border: 1px solid #333;
+            }
+            pre code {
+                background: none;
+                padding: 0;
+                color: #66ff99;
+            }
+            .params {
+                margin: 15px 0;
+            }
+            .param {
+                background: #0d0d0d;
+                padding: 10px;
+                margin: 8px 0;
+                border-radius: 6px;
+                border-left: 3px solid #ff66aa;
+            }
+            .param-name {
+                color: #ff88bb;
+                font-weight: bold;
+                font-family: 'Courier New', monospace;
+            }
+            .param-type {
+                color: #66ddff;
+                font-size: 0.9rem;
+                font-style: italic;
+            }
+            .response {
+                background: #0d0d0d;
+                padding: 15px;
+                border-radius: 8px;
+                margin: 10px 0;
+            }
+            .response-title {
+                color: #66ff99;
+                font-weight: bold;
+                margin-bottom: 10px;
+            }
+            ul {
+                margin-left: 20px;
+                color: #c0c0c0;
+            }
+            a {
+                color: #ff66aa;
+                text-decoration: none;
+                transition: color 0.3s;
+            }
+            a:hover {
+                color: #ff4488;
+                text-decoration: underline;
+            }
+            .badge {
+                display: inline-block;
+                background: #333;
+                color: #ff66aa;
+                padding: 3px 10px;
+                border-radius: 12px;
+                font-size: 0.85rem;
+                margin-left: 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>🎮 OsuRender API Documentation</h1>
+            <p>High-quality osu! replay rendering service powered by Danser-Go</p>
+        </div>
+
+        <div class="container">
+            <div class="section">
+                <h2>📖 Overview</h2>
+                <p>Welcome to the OsuRender API! This service allows you to render osu! replays into beautiful, high-quality videos using the Danser rendering engine. Submit your replay files, customize rendering options, and download the finished video.</p>
+                <p style="margin-top: 15px;"><strong>Base URL:</strong> <code>http://localhost:8000</code> (or your deployment URL)</p>
+            </div>
+
+            <div class="section">
+                <h2>🚀 Endpoints</h2>
+
+                <div class="endpoint">
+                    <span class="method get">GET</span>
+                    <span class="path">/</span>
+                    <div class="description">Root endpoint - returns API status and documentation link.</div>
+                    <div class="response">
+                        <div class="response-title">Response:</div>
+                        <pre><code>{
+  "status": "danser api online",
+  "docs": "/docs"
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <span class="method get">GET</span>
+                    <span class="path">/skins</span>
+                    <div class="description">List all available osu! skins that can be used for rendering.</div>
+                    <div class="response">
+                        <div class="response-title">Response:</div>
+                        <pre><code>["Default", "Rafis HDDT", "WhiteCat 1.0", "Seoul v9", ...]</code></pre>
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <span class="method post">POST</span>
+                    <span class="path">/skins/upload</span>
+                    <span class="badge">multipart/form-data</span>
+                    <div class="description">Upload a .osk file to add a new skin for rendering.</div>
+                    
+                    <div class="params">
+                        <h3>Parameters:</h3>
+                        <div class="param">
+                            <span class="param-name">skin</span> <span class="param-type">(file, required)</span>
+                            <p>The .osk skin file to upload</p>
+                        </div>
+                    </div>
+
+                    <div class="response">
+                        <div class="response-title">Response:</div>
+                        <pre><code>{
+  "success": true,
+  "skin_name": "MyCustomSkin",
+  "message": "Skin 'MyCustomSkin' uploaded successfully"
+}</code></pre>
+                    </div>
+
+                    <div class="response">
+                        <div class="response-title">Example cURL:</div>
+                        <pre><code>curl -X POST http://localhost:8000/skins/upload \\
+  -F "skin=@MyCustomSkin.osk"</code></pre>
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <span class="method get">GET</span>
+                    <span class="path">/jobs</span>
+                    <div class="description">Get status of all render jobs.</div>
+                    <div class="response">
+                        <div class="response-title">Response:</div>
+                        <pre><code>{
+  "abc123de": {
+    "status": "complete",
+    "percent": 100,
+    "error": null
+  },
+  "def456gh": {
+    "status": "rendering",
+    "percent": 45,
+    "error": null
+  }
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <span class="method post">POST</span>
+                    <span class="path">/render</span>
+                    <span class="badge">multipart/form-data</span>
+                    <div class="description">Submit a new replay for rendering. Upload your .osr file and customize rendering settings.</div>
+                    
+                    <div class="params">
+                        <h3>Parameters:</h3>
+                        <div class="param">
+                            <span class="param-name">replay</span> <span class="param-type">(file, required)</span>
+                            <p>The .osr replay file to render</p>
+                        </div>
+                        <div class="param">
+                            <span class="param-name">skin</span> <span class="param-type">(string, optional)</span>
+                            <p>Skin name to use for rendering. Default: <code>"Default"</code></p>
+                        </div>
+                        <div class="param">
+                            <span class="param-name">bg_dim</span> <span class="param-type">(float, optional)</span>
+                            <p>Background dim value (0.0 - 1.0). Default: <code>0.95</code></p>
+                        </div>
+                    </div>
+
+                    <div class="response">
+                        <div class="response-title">Response:</div>
+                        <pre><code>{
+  "job_id": "abc123de",
+  "logs": "/logs/abc123de",
+  "download": "/download/abc123de"
+}</code></pre>
+                    </div>
+
+                    <div class="response">
+                        <div class="response-title">Example cURL:</div>
+                        <pre><code>curl -X POST http://localhost:8000/render \\
+  -F "replay=@myreplay.osr" \\
+  -F "skin=Rafis HDDT" \\
+  -F "bg_dim=0.85"</code></pre>
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <span class="method get">GET</span>
+                    <span class="path">/logs/{job_id}</span>
+                    <div class="description">Get detailed status and logs for a specific job.</div>
+                    
+                    <div class="params">
+                        <h3>Parameters:</h3>
+                        <div class="param">
+                            <span class="param-name">job_id</span> <span class="param-type">(path parameter)</span>
+                            <p>The unique job identifier returned from <code>/render</code></p>
+                        </div>
+                    </div>
+
+                    <div class="response">
+                        <div class="response-title">Response:</div>
+                        <pre><code>{
+  "status": "rendering",
+  "percent": 67.5,
+  "replay": "/path/to/replay.osr",
+  "skin": "Default",
+  "bg_dim": 0.95,
+  "error": null,
+  "full_log": "... danser output logs ..."
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <span class="method get">GET</span>
+                    <span class="path">/download/{job_id}</span>
+                    <div class="description">Download the rendered video file. Only available when job status is <code>complete</code>.</div>
+                    
+                    <div class="params">
+                        <h3>Parameters:</h3>
+                        <div class="param">
+                            <span class="param-name">job_id</span> <span class="param-type">(path parameter)</span>
+                            <p>The unique job identifier</p>
+                        </div>
+                    </div>
+
+                    <div class="response">
+                        <div class="response-title">Response:</div>
+                        <p>Returns the video file as <code>video/mp4</code></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>📊 Job Status Values</h2>
+                <ul>
+                    <li><strong>queued</strong> - Job is waiting in the render queue</li>
+                    <li><strong>downloading</strong> - Downloading beatmap from osu! servers</li>
+                    <li><strong>rendering</strong> - Danser is actively rendering the video</li>
+                    <li><strong>complete</strong> - Render finished successfully, video ready for download</li>
+                    <li><strong>error: beatmap</strong> - Failed to download beatmap</li>
+                    <li><strong>error: timeout</strong> - Render took longer than 10 minutes</li>
+                    <li><strong>error: no output</strong> - Danser didn't produce an output file</li>
+                    <li><strong>error: exception</strong> - Unexpected error occurred</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h2>⚡ Workflow Example</h2>
+                <pre><code>1. POST /render with your .osr file
+   → Receive job_id: "abc123de"
+
+2. Poll GET /logs/abc123de to check progress
+   → status: "rendering", percent: 45
+
+3. Wait until status becomes "complete"
+   → status: "complete", percent: 100
+
+4. GET /download/abc123de
+   → Download your rendered video!</code></pre>
+            </div>
+
+            <div class="section">
+                <h2>⚙️ Technical Details</h2>
+                <ul>
+                    <li><strong>Rate Limiting:</strong> One concurrent render per server instance</li>
+                    <li><strong>Timeout:</strong> 10 minutes maximum render time</li>
+                    <li><strong>Output Format:</strong> MP4 (H.264)</li>
+                    <li><strong>Resolution:</strong> 1920x1080 (configured in Danser settings)</li>
+                    <li><strong>API Framework:</strong> FastAPI</li>
+                    <li><strong>Render Engine:</strong> Danser-Go</li>
+                </ul>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
 
 @app.get("/skins")
 def list_skins():
@@ -229,6 +611,52 @@ def list_skins():
         d for d in os.listdir(SKINS_DIR)
         if os.path.isdir(os.path.join(SKINS_DIR, d))
     ])
+
+@app.post("/skins/upload")
+async def upload_skin(skin: UploadFile = File(...)):
+    """Upload a .osk file and extract it as a new skin"""
+    import zipfile
+    import tempfile
+    
+    if not skin.filename or not skin.filename.endswith('.osk'):
+        raise HTTPException(400, "File must be a .osk file")
+    
+    # Get skin name from filename (remove .osk extension)
+    skin_name = skin.filename[:-4]
+    skin_path = os.path.join(SKINS_DIR, skin_name)
+    
+    # Check if skin already exists
+    if os.path.exists(skin_path):
+        raise HTTPException(409, f"Skin '{skin_name}' already exists")
+    
+    try:
+        # Create temporary file to save the .osk
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.osk') as tmp:
+            content = await skin.read()
+            tmp.write(content)
+            tmp_path = tmp.name
+        
+        # Extract the .osk file (which is a zip file)
+        os.makedirs(SKINS_DIR, exist_ok=True)
+        with zipfile.ZipFile(tmp_path, 'r') as zip_ref:
+            zip_ref.extractall(skin_path)
+        
+        # Clean up temp file
+        os.unlink(tmp_path)
+        
+        return {
+            "success": True,
+            "skin_name": skin_name,
+            "message": f"Skin '{skin_name}' uploaded successfully"
+        }
+    
+    except zipfile.BadZipFile:
+        raise HTTPException(400, "Invalid .osk file (not a valid zip archive)")
+    except Exception as e:
+        # Clean up on error
+        if os.path.exists(skin_path):
+            shutil.rmtree(skin_path)
+        raise HTTPException(500, f"Failed to upload skin: {str(e)}")
 
 @app.get("/jobs")
 def get_jobs():
