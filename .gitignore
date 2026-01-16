@@ -1,3 +1,4 @@
 *.js
 __pycache__
 venv
+thing.txt
