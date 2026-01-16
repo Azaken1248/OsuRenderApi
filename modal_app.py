@@ -74,7 +74,6 @@ async def ensure_beatmap(osr_path: str, api_key: str, job_id: str) -> dict:
             return {"success": os.path.exists(osz_path), "beatmap_id": b_id, "error": "Download failed"}
     except Exception as e: return {"success": False, "error": str(e)}
 
-# --- 4. GPU WORKER ---
 
 @app.function(
     image=image, gpu="T4",
