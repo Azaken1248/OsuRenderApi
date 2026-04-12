@@ -1,54 +1,89 @@
 # OsuRender
 
-High-quality osu! replay rendering service powered by Danser-Go. Available in two deployment modes:
+High-quality osu! replay rendering service powered by Danser-Go, with two deployment modes:
 
-- **`app.py`** - Local deployment with CPU/GPU rendering
-- **`modal_app.py`** - Cloud deployment on Modal with automatic GPU scaling
+- `app.py`: local FastAPI deployment (CPU/GPU depending on host setup)
+- `modal_app.py`: cloud deployment on Modal with GPU workers
 
 ## Features
 
-- Render osu! replays to high-quality MP4 videos
-- Customizable skins and visual settings
-- Real-time progress tracking
-- RESTful API with interactive documentation
-- Cloud deployment option with GPU acceleration
-- Built-in video player for cloud renders
+- Render `.osr` replays to MP4 video
+- Select and upload custom skins (`.osk`)
+- Track render progress and logs
+- Replay job history endpoints
+- Cloud deployment with auto-scaling GPU containers
+- Built-in cloud viewer page for finished renders
 
-## Table of Contents
+## Important Notes
 
-1. [Prerequisites](#prerequisites)
-2. [Local Deployment (app.py)](#local-deployment-apppy)
-3. [Cloud Deployment (modal_app.py)](#cloud-deployment-modal_apppy)
-4. [API Documentation](#api-documentation)
-5. [Configuration](#configuration)
-6. [Troubleshooting](#troubleshooting)
+- Local mode should be run with Uvicorn (`uvicorn app:app ...`).
+- In local mode, `GET /docs` is a custom HTML docs page, not the default Swagger UI.
+- In cloud mode, the video endpoint is `GET /video/{job_id}.mp4` (includes `.mp4` in the route).
+- Current local code uses hardcoded path constants in `app.py` (`DANSER_BIN`, `SONGS_DIR`, etc.). Older docs that reference only `DANSER_PATH` are outdated for this revision.
+- Current local uploads are stored in `jobs/` (not a separate `uploads/` directory).
 
 ## Prerequisites
 
-### For Both Deployments
+### Common
 
 - Python 3.10+ (3.11 recommended)
+- pip
 - git
-- An osu! API key - get one at https://osu.ppy.sh/p/api
+- osu! API key (v1): https://osu.ppy.sh/p/api
 
-### Local Deployment Only
+### Local mode (`app.py`)
 
-- Danser-Go binary (https://github.com/Wieku/danser-go/releases)
-- ffmpeg
-- xvfb (Linux) or equivalent display server
+- Danser-Go binary: https://github.com/Wieku/danser-go/releases
+- `ffmpeg`
+- `xvfb` on Linux (or equivalent virtual display)
 
-### Cloud Deployment Only
+### Cloud mode (`modal_app.py`)
 
-- Modal account (https://modal.com)
-- Modal CLI installed: `pip install modal`
+- Modal account: https://modal.com
+- Modal CLI (`pip install modal`)
 
-## Local Deployment (app.py)
+## Local Deployment (`app.py`)
 
-### 1. Download and Setup Danser-Go
+### 1. Install Python dependencies
 
-Download the latest Danser-Go binary from https://github.com/Wieku/danser-go/releases
+Linux/macOS:
 
-**Linux:**
+```bash
+cd /path/to/OsuRenderApi
+python3 -m venv venv
+source venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+Windows PowerShell:
+
+```powershell
+cd C:\path\to\OsuRenderApi
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+Windows CMD:
+
+```cmd
+cd C:\path\to\OsuRenderApi
+python -m venv venv
+venv\Scripts\activate.bat
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### 2. Install Danser-Go
+
+Download a release from:
+
+- https://github.com/Wieku/danser-go/releases
+
+Example Linux setup:
+
 ```bash
 mkdir -p /home/aza/danser
 cd /home/aza/danser
@@ -57,174 +92,198 @@ unzip danser-0.11.0-linux.zip
 chmod +x danser-cli
 ```
 
-**Windows:**
-Download the Windows release, extract to `C:\danser`, and ensure `danser.exe` is accessible.
+Windows:
 
-### 2. Install Python Dependencies
+- Download the Windows release.
+- Extract it (for example to `C:\danser`).
+- Update `DANSER_BIN` in `app.py` to point to the executable path.
 
-**Linux/macOS:**
-```bash
-cd /home/aza/OsuRender
-python3 -m venv venv
-source venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-```
+### 3. Configure environment and paths
 
-**Windows (PowerShell):**
-```powershell
-cd C:\path\to\OsuRender
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-```
+Required environment variable:
 
-**Windows (CMD):**
-```cmd
-cd C:\path\to\OsuRender
-python -m venv venv
-venv\Scripts\activate.bat
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-```
+- `OSU_API_KEY`
 
-### 3. Set Environment Variables
+Linux/macOS:
 
-**Linux/macOS:**
 ```bash
 export OSU_API_KEY="your_api_key_here"
-export DANSER_PATH="/home/aza/danser/danser-cli"
 ```
 
-**Windows (PowerShell):**
+Windows PowerShell:
+
 ```powershell
 $env:OSU_API_KEY = "your_api_key_here"
-$env:DANSER_PATH = "C:\danser\danser.exe"
 ```
 
-### 4. Run the Application
+Current local path configuration is in `app.py`:
 
-**Direct execution:**
-```bash
-python app.py
+```python
+DANSER_DIR = "/home/aza/danser"
+DANSER_BIN = "/home/aza/danser/danser-cli"
+SONGS_DIR = "/home/aza/danser/osu_data/Songs"
+SKINS_DIR = "/home/aza/danser/osu_data/Skins"
+DOWNLOADS_DIR = "/home/aza/OsuRender/downloads"
+JOBS_DIR = "/home/aza/OsuRender/jobs"
+CONFIG_DIR = "/home/aza/danser/settings/jobs"
 ```
 
-**Or with Uvicorn:**
+Adjust these for your environment.
+
+### 4. Run local API
+
 ```bash
 uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### 5. Access the Application
+### 5. Access local API
 
-- **API Root:** http://localhost:8000/
-- **Documentation:** http://localhost:8000/docs
-- **Swagger UI:** http://localhost:8000/docs (FastAPI auto-generated)
+- API root: http://localhost:8000/
+- Docs page: http://localhost:8000/docs
 
-### Production Deployment with PM2 (Optional)
+## Optional: PM2 (Local)
 
 Install PM2:
+
 ```bash
 npm install -g pm2
 ```
 
-Configure `ecosystem.config.js`:
+Example `ecosystem.config.js`:
+
 ```js
 module.exports = {
   apps: [
     {
-      name: 'osurender',
-      script: 'app.py',
-      interpreter: '/home/aza/OsuRender/venv/bin/python',
+      name: "osurender",
+      script: "venv/bin/uvicorn",
+      args: "app:app --host 0.0.0.0 --port 8000",
+      cwd: "/home/aza/OsuRenderApi",
       env: {
-        OSU_API_KEY: 'your_api_key_here',
-        DANSER_PATH: '/home/aza/danser/danser-cli',
-        FLASK_ENV: 'production'
+        OSU_API_KEY: "your_api_key_here"
       }
     }
   ]
 }
 ```
 
-Start with PM2:
+Start/inspect logs:
+
 ```bash
 pm2 start ecosystem.config.js
 pm2 status
 pm2 logs osurender
 ```
 
-Stop and remove:
+Stop/remove:
+
 ```bash
 pm2 stop osurender
 pm2 delete osurender
 ```
 
-## Cloud Deployment (modal_app.py)
+## Cloud Deployment (`modal_app.py`)
 
-### 1. Install Modal
+### 1. Install Modal CLI
 
 ```bash
 pip install modal
 ```
 
-### 2. Authenticate with Modal
+### 2. Authenticate
 
 ```bash
 modal setup
 ```
 
-Follow the prompts to authenticate with your Modal account.
+### 3. Create secret for osu! API key
 
-### 3. Set Up Modal Secret
-
-Create a secret named `osu-api` in the Modal dashboard with your API key:
+The cloud worker expects a secret named `osu-api` containing `OSU_API_KEY`:
 
 ```bash
 modal secret create osu-api OSU_API_KEY="your_api_key_here"
 ```
 
-Or via the Modal web dashboard: https://modal.com/secrets
+### 4. Deploy
 
-### 4. Deploy to Modal
+Development (live reload):
 
-**Development (live reload):**
 ```bash
 modal serve modal_app.py
 ```
 
-**Production deployment:**
+Production:
+
 ```bash
 modal deploy modal_app.py
 ```
 
-### 5. Access Your Cloud App
+### 5. Access cloud app
 
-After deployment, Modal will provide a URL like:
+Modal returns a URL like:
+
 - `https://your-username--aza-render-cloud-fastapi-app.modal.run`
 
-Visit this URL to access:
-- **Home:** `/`
-- **Documentation:** `/docs`
-- **Interactive player:** `/view/{job_id}`
+Useful paths:
 
-## API Documentation
+- `/docs`
+- `/view/{job_id}`
+- `/video/{job_id}.mp4`
 
-Both deployments expose a `/docs` endpoint with beautiful osu!-themed documentation.
+## API Reference
 
-### Local API (app.py)
+### Local API (`app.py`)
 
-**Base URL:** `http://localhost:8000`
+Base URL: `http://localhost:8000`
 
-**Key Endpoints:**
 - `GET /` - API status
-- `GET /docs` - Interactive documentation
-- `GET /skins` - List available skins
-- `POST /render` - Submit replay for rendering
-- `GET /jobs` - Get all job statuses
-- `GET /logs/{job_id}` - Get job details and logs
-- `GET /download/{job_id}` - Download rendered video
+- `GET /docs` - custom HTML docs page
+- `GET /skins` - list available skins
+- `POST /skins/upload` - upload `.osk` skin
+- `GET /jobs` - list in-memory job statuses
+- `POST /render` - queue replay render
+- `GET /logs/{job_id}` - job status + full log (if available)
+- `GET /download/{job_id}` - download rendered MP4
 
-**Example render request:**
+Local render request fields (`multipart/form-data`):
+
+- `replay` (file, required)
+- `skin` (string, optional, default `Default`)
+- `bg_dim` (float, optional, default `0.95`)
+
+### Cloud API (`modal_app.py`)
+
+Base URL: your Modal deployment URL
+
+- `GET /` - landing page
+- `GET /docs` - FastAPI interactive docs
+- `GET /skins` - list available skins
+- `POST /skins/upload` - upload `.osk` skin
+- `POST /render` - submit cloud render
+- `GET /status/{job_id}` - metadata/status JSON
+- `GET /jobs` - list metadata history
+- `GET /logs/{job_id}` - renderer logs
+- `GET /view/{job_id}` - HTML player/status page
+- `GET /video/{job_id}.mp4` - stream/download MP4
+
+Cloud render request fields (`multipart/form-data`):
+
+- `replay` (file, required)
+- `skin` (string, default `Default`)
+- `bg_dim` (float, default `0.95`, values above `1.0` are interpreted as percentages)
+- `quality` (`standard` or `ultra`, default `standard`)
+- `motion_blur` (bool, default `true`)
+- `storyboard` (bool, default `true`)
+- `video` (bool, default `false`)
+- `snaking_in` (bool, default `true`)
+- `snaking_out` (bool, default `true`)
+- `hit_error_meter` (bool, default `true`)
+- `key_overlay` (bool, default `true`)
+
+## Example Requests
+
+Local render:
+
 ```bash
 curl -X POST http://localhost:8000/render \
   -F "replay=@myreplay.osr" \
@@ -232,44 +291,27 @@ curl -X POST http://localhost:8000/render \
   -F "bg_dim=0.85"
 ```
 
-### Cloud API (modal_app.py)
+Cloud render:
 
-**Base URL:** `https://your-modal-app.modal.run`
-
-**Key Endpoints:**
-- `GET /` - Landing page
-- `GET /docs` - Interactive documentation
-- `POST /render` - Submit replay (with quality options)
-- `GET /view/{job_id}` - Interactive web player
-- `GET /status/{job_id}` - JSON status
-- `GET /jobs` - List all jobs
-- `GET /video/{job_id}` - Download/stream video
-
-**Example render request:**
 ```bash
 curl -X POST https://your-modal-app.modal.run/render \
   -F "replay=@myreplay.osr" \
   -F "skin=Default" \
   -F "quality=ultra" \
   -F "motion_blur=true" \
+  -F "storyboard=true" \
+  -F "video=false" \
   -F "bg_dim=0.85"
 ```
 
-**Quality options:**
-- `standard` - 1080p (1920x1080)
-- `ultra` - 4K (3840x2160)
+## Danser Configuration
 
-## Configuration
+Edit Danser settings (example path used by current setup):
 
-### Danser Settings
-
-Edit `/home/aza/danser/settings/default.json` to configure:
-- Output directory
-- Recording quality
-- Video codec settings
-- Playfield options
+- `/home/aza/danser/settings/default.json`
 
 Example:
+
 ```json
 {
   "Recording": {
@@ -280,335 +322,44 @@ Example:
 }
 ```
 
-### App Configuration (app.py)
+## Cloud Runtime Configuration
 
-Edit paths in [app.py](app.py):
+Current `modal_app.py` highlights:
+
 ```python
-DANSER_DIR = "/home/aza/danser"
-DANSER_BIN = "/home/aza/danser/danser-cli"
-SONGS_DIR = "/home/aza/danser/osu_data/Songs"
-SKINS_DIR = "/home/aza/danser/osu_data/Skins"
-DOWNLOADS_DIR = "/home/aza/OsuRender/downloads"
-JOBS_DIR = "/home/aza/OsuRender/jobs"
+gpu="T4"          # Change to A10G/A100 if needed
+timeout=1200       # 20 minutes
+max_containers=2   # Concurrent cloud render workers
+
+assets_vol = modal.Volume.from_name("osu-assets", create_if_missing=True)
+jobs_vol = modal.Volume.from_name("osu-jobs", create_if_missing=True)
 ```
 
-### Cloud Configuration (modal_app.py)
+## Project Structure (Current Workspace)
 
-Key settings in [modal_app.py](modal_app.py):
-```python
-# GPU selection (in @app.function decorator)
-gpu="T4"  # Options: T4, A10G, A100
-
-# Container limits
-timeout=1200  # 20 minutes
-max_containers=2  # Max concurrent renders
-
-# Volume names
-assets_vol = modal.Volume.from_name("osu-assets")
-jobs_vol = modal.Volume.from_name("osu-jobs")
-```
-
-## Project Structure
-
-```
-OsuRender/
-├── app.py              # Local FastAPI application
-├── modal_app.py        # Cloud Modal application
-├── requirements.txt    # Python dependencies
-├── ecosystem.config.js # PM2 configuration (optional)
-├── README.md          # This file
-├── downloads/         # Rendered videos (local)
-├── uploads/           # Upload staging
-└── jobs/              # Job metadata and replay files
+```text
+OsuRenderApi/
+|- app.py
+|- modal_app.py
+|- README.md
+|- requirements.txt
+|- downloads/
+|- jobs/
+|- venv/              (local, optional)
+`- __pycache__/       (generated)
 ```
 
 ## Dependencies
 
-From `requirements.txt`:
-- `fastapi` - Web framework
-- `uvicorn` - ASGI server
-- `httpx` - HTTP client for API calls
-- `osrparse` - osu! replay parser
-- `python-multipart` - Form data handling
-
-Cloud-only:
-- `modal` - Serverless deployment platform
-
-## Workflow Examples
-
-### Local Workflow
-
-1. Start the server: `python app.py`
-2. Submit a replay: `POST /render`
-3. Get job ID: `{"job_id": "abc123"}`
-4. Poll status: `GET /logs/abc123`
-5. Download: `GET /download/abc123`
-
-### Cloud Workflow
-
-1. Deploy: `modal deploy modal_app.py`
-2. Submit replay: `POST /render`
-3. Open view URL in browser: `/view/abc123`
-4. Watch live progress
-5. Video auto-plays when complete
-6. Click download button
-
-## Troubleshooting
-
-### Local Deployment
-
-**Danser not found:**
-- Verify `DANSER_PATH` points to the correct binary
-- Check execute permissions: `chmod +x /path/to/danser-cli`
-
-**xvfb errors (Linux):**
-```bash
-sudo apt-get install xvfb
-```
-
-**No output video:**
-- Check Danser logs in jobs folder
-- Verify `Recording.OutputDir` in Danser settings
-- Ensure sufficient disk space
-
-**API key errors:**
-- Confirm `OSU_API_KEY` is set correctly
-- Test key at https://osu.ppy.sh/api/get_user
-
-### Cloud Deployment
-
-**Modal authentication:**
-```bash
-modal token new
-```
-
-**Secret not found:**
-```bash
-modal secret list
-modal secret create osu-api OSU_API_KEY="key"
-```
-
-**GPU timeout:**
-- Increase timeout in `@app.function(timeout=...)`
-- Check render complexity
-
-**Volume issues:**
-```bash
-modal volume list
-modal volume delete osu-jobs  # If needed
-```
-
-## Performance Tips
-
-### Local
-- Use GPU encoding (`h264_nvenc`) if available
-- Adjust worker count based on CPU cores
-- Use SSD for downloads folder
-
-### Cloud
-- Use `quality="standard"` for faster renders
-- T4 GPU is cost-effective for most replays
-- A100 for ultra-high quality or complex maps
-
-## Support and Links
-
-- **Danser-Go:** https://github.com/Wieku/danser-go
-- **osu! API:** https://github.com/ppy/osu-api/wiki
-- **Modal Docs:** https://modal.com/docs
-- **FastAPI Docs:** https://fastapi.tiangolo.com
-
-## License
-
-This project is provided as-is for educational and personal use. Please respect osu! community guidelines and don't abuse rendering services.
-
----
-
-## Quick Reference
-
-### Start Local Server
-```bash
-# Development
-python app.py
-
-# Production with Uvicorn
-uvicorn app:app --host 0.0.0.0 --port 8000
-
-# With PM2
-pm2 start ecosystem.config.js
-```
-
-### Deploy to Cloud
-```bash
-# Development (hot reload)
-modal serve modal_app.py
-
-# Production
-modal deploy modal_app.py
-```
-
-### Common Commands
-```bash
-# Check job status
-curl http://localhost:8000/logs/{job_id}
-
-# List all jobs
-curl http://localhost:8000/jobs
-
-# List available skins (local only)
-curl http://localhost:8000/skins
-
-# Download video
-curl http://localhost:8000/download/{job_id} -o render.mp4
-```
-
-Enjoy rendering!
-
-## Prerequisites
-
-- Python 3.10+ (3.11 recommended)
-- pip
-- git
-- Node.js + npm (for PM2, optional)
-- Danser Go (danser-go) binary — see download link below
-- An osu! API key (see instructions below)
-
-## Danser Go (danser-go)
-
-Download the latest prebuilt binaries from the official repository releases:
-
-- Releases: https://github.com/Wieku/danser-go/releases
-
-Place the danser binary in a location accessible to this app. Two common options:
-
-- Put the binary under `/home/aza/danser` (or any chosen folder) and ensure it is executable.
-- Or keep it anywhere and set the `DANSER_PATH` environment variable to the full path of the danser binary.
-
-Example (Linux):
+Install from `requirements.txt`:
 
 ```bash
-# move binary to /home/aza/danser and make executable
-mkdir -p /home/aza/danser
-mv danser-go_linux_amd64 /home/aza/danser/danser
-chmod +x /home/aza/danser/danser
-```
-
-The repository includes a Danser configuration file example at `/home/aza/danser/settings/default.json`. You can edit that file to configure recording output directories and other Danser options. For example, adjust `Recording.OutputDir` to match the `downloads` folder in this repo.
-
-## Getting an osu! API Key
-
-To use osu! services you will likely need an API key. For the classic osu! v1 API, request a key here:
-
-- https://osu.ppy.sh/p/api
-
-Follow the instructions on that page and note your API key value. This key will be used by the application to query osu! endpoints.
-
-## Environment variables
-
-This app accepts configuration via environment variables. Common variables to set:
-
-- `OSU_API_KEY` — your osu! API key
-- `DANSER_PATH` — full path to the danser binary (optional if in PATH)
-- `FLASK_ENV` or `ENV` — optional, e.g., `development`/`production`
-
-You can export these directly or wire them into `ecosystem.config.js` for PM2-managed deployment.
-
-Example (Linux / bash):
-
-```bash
-export OSU_API_KEY="your_api_key_here"
-export DANSER_PATH="/home/aza/danser/danser"
-```
-
-Example (Windows PowerShell):
-
-```powershell
-$env:OSU_API_KEY = "your_api_key_here"
-$env:DANSER_PATH = "C:\path\to\danser.exe"
-```
-
-## ecosystem.config.js and PM2 (optional)
-
-If you want to run the app as a background service, use PM2. Install PM2 globally:
-
-```bash
-npm install -g pm2
-```
-
-A simple `ecosystem.config.js` may look like this (adjust paths and env variables):
-
-```js
-module.exports = {
-  apps: [
-    {
-      name: 'osurender',
-      script: 'app.py',
-      interpreter: '/usr/bin/python3', // or full path to your venv python
-      env: {
-        OSU_API_KEY: process.env.OSU_API_KEY || 'your_api_key_here',
-        DANSER_PATH: process.env.DANSER_PATH || '/home/aza/danser/danser',
-        FLASK_ENV: 'production'
-      }
-    }
-  ]
-}
-```
-
-Start with PM2:
-
-```bash
-pm2 start ecosystem.config.js
-pm2 status
-pm2 logs osurender
-```
-
-To stop and remove:
-
-```bash
-pm2 stop osurender
-pm2 delete osurender
-```
-
-If you're using a Python virtual environment, change the `interpreter` path above to the venv python binary (e.g. `/home/aza/OsuRender/venv/bin/python`).
-
-## Python virtual environment (venv)
-
-Follow these steps to create and activate a virtual environment, then install dependencies from `requirements.txt`.
-
-Linux / macOS (bash):
-
-```bash
-cd /home/aza/OsuRender
-python3 -m venv venv
-source venv/bin/activate
-pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-Windows PowerShell:
+Current pinned dependencies:
 
-```powershell
-cd C:\path\to\OsuRender
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-Windows CMD:
-
-```cmd
-cd C:\path\to\OsuRender
-python -m venv venv
-venv\Scripts\activate.bat
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-## Requirements
-
-This project uses `requirements.txt` for Python dependencies. Current contents of `requirements.txt`:
-
-```
+```text
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.12.1
@@ -637,49 +388,63 @@ uvicorn==0.40.0
 wrapt==2.0.1
 ```
 
-Install them with:
+Cloud-only dependency:
 
-```bash
-pip install -r requirements.txt
-```
+- `modal` (install separately for cloud deployment)
 
-## Running the application locally
+## Workflow Examples
 
-With venv active:
+### Local workflow
 
-```bash
-python app.py
-```
+1. Start API with Uvicorn.
+2. Submit `POST /render`.
+3. Track `GET /logs/{job_id}`.
+4. Download `GET /download/{job_id}` when complete.
 
-Or run via Uvicorn (if the app exposes an ASGI entrypoint):
+### Cloud workflow
 
-```bash
-uvicorn app:app --host 0.0.0.0 --port 8000
-```
-
-(Adjust the module/path depending on how `app.py` defines the FastAPI/Flask app.)
-
-## Files and folders of interest
-
-- `app.py` — main Python application entrypoint.
-- `requirements.txt` — Python dependencies.
-- `ecosystem.config.js` — PM2 config for production usage.
-- `downloads/` — default output directory for rendered videos (see Danser config).
-- `uploads/` — upload point for beatmaps/replays.
-- `jobs/` — rendered job artifacts.
-- `/home/aza/danser/settings/default.json` — example Danser settings (already included in your attachments).
-
-## Example workflow
-
-1. Install Python deps in venv and export `OSU_API_KEY` and `DANSER_PATH`.
-2. Ensure Danser Go binary is present and settings point `Recording.OutputDir` to `downloads/`.
-3. Start the app locally (`python app.py`) or with PM2 (`pm2 start ecosystem.config.js`).
-4. Use the web/API endpoints to submit render jobs (check `app.py` routes).
+1. Deploy with `modal deploy modal_app.py`.
+2. Submit `POST /render`.
+3. Poll `GET /status/{job_id}` or open `GET /view/{job_id}`.
+4. Watch/download from `GET /video/{job_id}.mp4`.
 
 ## Troubleshooting
 
-- If Danser fails to run, verify `DANSER_PATH` is correct and the binary has execute permission.
-- Check `downloads/` permissions — the service must be able to write files there.
-- If requests to osu! API fail, confirm `OSU_API_KEY` is valid and not rate-limited.
-- Use `pm2 logs` or the app console to inspect error traces.
+### Local
 
+- Danser not found: verify `DANSER_BIN` path and executable permissions.
+- `xvfb` issues on Linux: install with `sudo apt-get install xvfb`.
+- No output video: inspect `jobs/{job_id}.log`, verify Danser `Recording.OutputDir`, and check disk space.
+- osu! API failures: confirm `OSU_API_KEY` is set and valid.
+
+### Cloud
+
+- Modal auth issues: run `modal token new` and `modal setup`.
+- Missing secret: run `modal secret list` and recreate `osu-api` if needed.
+- Timeout during render: increase `timeout` in `@app.function(...)`.
+- Volume issues: inspect with `modal volume list`.
+
+## Performance Tips
+
+### Local
+
+- Use GPU encoder (`h264_nvenc`) when available.
+- Keep `downloads/` and Danser assets on SSD.
+- Limit concurrent workload per host to avoid IO contention.
+
+### Cloud
+
+- Use `quality=standard` for faster jobs.
+- `T4` is a good cost/performance default.
+- Move to `A10G` or `A100` for heavier maps or higher throughput.
+
+## Support Links
+
+- Danser-Go: https://github.com/Wieku/danser-go
+- osu! API docs: https://github.com/ppy/osu-api/wiki
+- Modal docs: https://modal.com/docs
+- FastAPI docs: https://fastapi.tiangolo.com
+
+## License
+
+Provided as-is for educational and personal use. Please respect osu! community guidelines.

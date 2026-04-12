@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from osrparse import Replay
 
+# --- 1. ENVIRONMENT & IMAGE ---
 image = (
     modal.Image.debian_slim()
     .apt_install(
@@ -23,6 +24,7 @@ image = (
 app = modal.App("aza-render-cloud")
 web_app = FastAPI(title="danser render API - Cloud")
 
+# --- 2. STORAGE & VOLUMES ---
 assets_vol = modal.Volume.from_name("osu-assets", create_if_missing=True)
 jobs_vol = modal.Volume.from_name("osu-jobs", create_if_missing=True)
 
@@ -34,6 +36,7 @@ METADATA_DIR = "/mnt/jobs/metadata"
 
 web_app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
+# --- 3. CORE LOGIC HELPERS ---
 
 def update_job_metadata(job_id: str, updates: dict):
     os.makedirs(METADATA_DIR, exist_ok=True)
@@ -74,6 +77,7 @@ async def ensure_beatmap(osr_path: str, api_key: str, job_id: str) -> dict:
             return {"success": os.path.exists(osz_path), "beatmap_id": b_id, "error": "Download failed"}
     except Exception as e: return {"success": False, "error": str(e)}
 
+# --- 4. GPU WORKER ---
 
 @app.function(
     image=image, gpu="T4",
@@ -104,11 +108,34 @@ async def cloud_render_task(job_id: str, data: dict):
             return
 
         update_job_metadata(job_id, {"status": "rendering", "percent": 25})
+        
         patch = json.dumps({
             "Graphics": {"Width": data["res_w"], "Height": data["res_h"]},
-            "Skin": {"CurrentSkin": data["skin"], "UseColorsFromSkin": True, "UseBeatmapColors": False, "Cursor": {"UseSkinCursor": True, "Scale": 0.6}},
-            "Objects": {"Sliders": {"ForceSliderBallTexture": True}},
-            "Playfield": {"Background": {"Dim": {"Normal": data["bg_dim"]}}, "Skins": {"UseSkinCursor": True, "UseSliderSkin": True}},
+            "Gameplay": {
+                "HitErrorMeter": {"Show": data["hit_error_meter"]},
+                "KeyOverlay": {"Show": data["key_overlay"]}
+            },
+            "Skin": {
+                "CurrentSkin": data["skin"], "UseColorsFromSkin": True, 
+                "UseBeatmapColors": False, "Cursor": {"UseSkinCursor": True, "Scale": 0.6}
+            },
+            "Objects": {
+                "Sliders": {
+                    "ForceSliderBallTexture": True,
+                    "Snaking": {
+                        "In": data["snaking_in"],
+                        "Out": data["snaking_out"]
+                    }
+                }
+            },
+            "Playfield": {
+                "Background": {
+                    "Dim": {"Normal": data["bg_dim"]},
+                    "LoadStoryboards": data["storyboard"],
+                    "LoadVideos": data["video"]
+                }, 
+                "Skins": {"UseSkinCursor": True, "UseSliderSkin": True}
+            },
             "Recording": {"MotionBlur": {"Enabled": data["motion_blur"]}, "Encoder": "h264_nvenc"}
         })
 
@@ -144,6 +171,7 @@ async def cloud_render_task(job_id: str, data: dict):
     except Exception as e: update_job_metadata(job_id, {"status": "error", "error": str(e)})
     finally: jobs_vol.commit()
 
+# --- 5. ROUTES ---
 
 @web_app.get("/")
 def home(): return HTMLResponse("<h1>🎮 OsuRender API Online</h1><p><a href='/jobs'>History</a> | <a href='/docs'>Docs</a></p>")
@@ -176,13 +204,59 @@ async def upload_skin(skin: UploadFile = File(...)):
     except: raise HTTPException(500, "Extraction failed")
 
 @web_app.post("/render")
-async def render(replay: UploadFile = File(...), skin: str = Form("Default"), bg_dim: float = Form(0.95), quality: str = Form("standard"), motion_blur: bool = Form(True)):
-    job_id = uuid.uuid4().hex[:8]; os.makedirs(f"{JOBS_DIR}/replays", exist_ok=True); osr_path = f"{JOBS_DIR}/replays/{job_id}.osr"
-    with open(osr_path, "wb") as f: f.write(await replay.read())
-    update_job_metadata(job_id, {"job_id": job_id, "status": "queued", "percent": 0, "skin": skin, "created_at": time.time()})
+async def render(
+    replay: UploadFile = File(...), 
+    skin: str = Form("Default"), 
+    bg_dim: float = Form(0.95), 
+    quality: str = Form("standard"), 
+    motion_blur: bool = Form(True),
+    storyboard: bool = Form(True),
+    video: bool = Form(False),
+    snaking_in: bool = Form(True),
+    snaking_out: bool = Form(True),
+    hit_error_meter: bool = Form(True),
+    key_overlay: bool = Form(True)
+):
+    if bg_dim > 1.0:
+        bg_dim = bg_dim / 100.0
+    bg_dim = max(0.0, min(1.0, bg_dim))
+
+    job_id = uuid.uuid4().hex[:8]
+    os.makedirs(f"{JOBS_DIR}/replays", exist_ok=True)
+    osr_path = f"{JOBS_DIR}/replays/{job_id}.osr"
+    
+    with open(osr_path, "wb") as f: 
+        f.write(await replay.read())
+        
+    update_job_metadata(job_id, {
+        "job_id": job_id, "status": "queued", "percent": 0, "skin": skin, 
+        "created_at": time.time()
+    })
+    
     w, h = (3840, 2160) if quality == "ultra" else (1920, 1080)
-    cloud_render_task.spawn(job_id, {"replay": osr_path, "skin": skin, "bg_dim": bg_dim, "quality": quality, "motion_blur": motion_blur, "res_w": w, "res_h": h})
-    return {"job_id": job_id, "view_url": f"/view/{job_id}"}
+    
+    cloud_render_task.spawn(job_id, {
+        "replay": osr_path, 
+        "skin": skin, 
+        "bg_dim": bg_dim, 
+        "quality": quality, 
+        "motion_blur": motion_blur, 
+        "storyboard": storyboard,
+        "video": video,
+        "snaking_in": snaking_in,
+        "snaking_out": snaking_out,
+        "hit_error_meter": hit_error_meter,
+        "key_overlay": key_overlay,
+        "res_w": w, 
+        "res_h": h
+    })
+    
+    # FIX: Added video_url explicitly with the .mp4 extension
+    return {
+        "job_id": job_id, 
+        "view_url": f"/view/{job_id}",
+        "video_url": f"/video/{job_id}.mp4" 
+    }
 
 @web_app.get("/status/{job_id}")
 async def get_status(job_id: str):
@@ -205,15 +279,27 @@ async def view_player(job_id: str):
     jobs_vol.reload(); path = f"{METADATA_DIR}/{job_id}.json"
     if not os.path.exists(path): return "Job not found"
     meta = json.load(open(path)); show = "inline" if meta.get("status") == "complete" else "none"
+    
+    # FIX: Added Open Graph tags for rich embeds in Discord/WhatsApp
     return f"""
-    <html><head><title>{job_id}</title><style>body{{background:#0f0f0f;color:#ff66aa;font-family:sans-serif;text-align:center;padding:40px;}} video{{width:80%;border:2px solid #ff66aa;display:{show};}} .btn{{background:#ff66aa;color:white;padding:12px 25px;text-decoration:none;border-radius:8px;display:{show};margin-top:20px;}}</style></head>
+    <html><head>
+        <title>OsuRender: {job_id}</title>
+        <meta property="og:title" content="OsuRender Job: {meta.get('map_title','Loading...')}">
+        <meta property="og:type" content="video.other">
+        <meta property="og:video" content="https://api.render.azaken.com/video/{job_id}.mp4">
+        <meta property="og:video:type" content="video/mp4">
+        <meta property="og:video:width" content="1920">
+        <meta property="og:video:height" content="1080">
+        <meta name="theme-color" content="#ff66aa">
+        <style>body{{background:#0f0f0f;color:#ff66aa;font-family:sans-serif;text-align:center;padding:40px;}} video{{width:80%;border:2px solid #ff66aa;display:{show};}} .btn{{background:#ff66aa;color:white;padding:12px 25px;text-decoration:none;border-radius:8px;display:{show};margin-top:20px;}}</style>
+    </head>
     <body><h1>Job: {job_id}</h1><p>Map: {meta.get('map_title','Loading...')}</p>
-    <div id="status">Status: {meta['status']} ({meta['percent']}%)</div><video id="v" controls><source src="/video/{job_id}" type="video/mp4"></video><br>
-    <a id="d" href="/video/{job_id}" class="btn" download>Download</a>
+    <div id="status">Status: {meta['status']} ({meta['percent']}%)</div><video id="v" controls><source src="/video/{job_id}.mp4" type="video/mp4"></video><br>
+    <a id="d" href="/video/{job_id}.mp4" class="btn" download>Download</a>
     <script>async function check(){{let r=await fetch('/status/{job_id}');let d=await r.json();document.getElementById('status').innerText='Status: '+d.status+' ('+d.percent+'%)';if(d.status==='complete'){{document.getElementById('v').style.display='inline';document.getElementById('d').style.display='inline-block';document.getElementById('v').load();}}else if(d.status!=='error'){{setTimeout(check,3000);}}}};if("{meta['status']}"!=='complete')check();</script></body></html>
     """
 
-@web_app.get("/video/{job_id}")
+@web_app.get("/video/{job_id}.mp4")
 async def stream_video(job_id: str):
     jobs_vol.reload(); path = f"{JOBS_DIR}/render_{job_id}.mp4"
     if not os.path.exists(path): raise HTTPException(404)
