@@ -5,7 +5,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from osrparse import Replay
 
-# --- 1. ENVIRONMENT & IMAGE ---
 image = (
     modal.Image.debian_slim()
     .apt_install(
@@ -24,7 +23,6 @@ image = (
 app = modal.App("aza-render-cloud")
 web_app = FastAPI(title="danser render API - Cloud")
 
-# --- 2. STORAGE & VOLUMES ---
 assets_vol = modal.Volume.from_name("osu-assets", create_if_missing=True)
 jobs_vol = modal.Volume.from_name("osu-jobs", create_if_missing=True)
 
@@ -36,7 +34,6 @@ METADATA_DIR = "/mnt/jobs/metadata"
 
 web_app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# --- 3. CORE LOGIC HELPERS ---
 
 def update_job_metadata(job_id: str, updates: dict):
     os.makedirs(METADATA_DIR, exist_ok=True)
@@ -77,7 +74,6 @@ async def ensure_beatmap(osr_path: str, api_key: str, job_id: str) -> dict:
             return {"success": os.path.exists(osz_path), "beatmap_id": b_id, "error": "Download failed"}
     except Exception as e: return {"success": False, "error": str(e)}
 
-# --- 4. GPU WORKER ---
 
 @app.function(
     image=image, gpu="T4",
@@ -171,7 +167,6 @@ async def cloud_render_task(job_id: str, data: dict):
     except Exception as e: update_job_metadata(job_id, {"status": "error", "error": str(e)})
     finally: jobs_vol.commit()
 
-# --- 5. ROUTES ---
 
 @web_app.get("/")
 def home(): return HTMLResponse("<h1>🎮 OsuRender API Online</h1><p><a href='/jobs'>History</a> | <a href='/docs'>Docs</a></p>")
@@ -251,7 +246,6 @@ async def render(
         "res_h": h
     })
     
-    # FIX: Added video_url explicitly with the .mp4 extension
     return {
         "job_id": job_id, 
         "view_url": f"/view/{job_id}",
@@ -278,9 +272,13 @@ async def get_logs(job_id: str):
 async def view_player(job_id: str):
     jobs_vol.reload(); path = f"{METADATA_DIR}/{job_id}.json"
     if not os.path.exists(path): return "Job not found"
-    meta = json.load(open(path)); show = "inline" if meta.get("status") == "complete" else "none"
     
-    # FIX: Added Open Graph tags for rich embeds in Discord/WhatsApp
+    meta = json.load(open(path))
+    is_complete = meta.get("status") == "complete"
+    show = "inline" if is_complete else "none"
+    
+    video_src_html = f'<source src="/video/{job_id}.mp4" type="video/mp4">' if is_complete else ''
+    
     return f"""
     <html><head>
         <title>OsuRender: {job_id}</title>
@@ -294,16 +292,44 @@ async def view_player(job_id: str):
         <style>body{{background:#0f0f0f;color:#ff66aa;font-family:sans-serif;text-align:center;padding:40px;}} video{{width:80%;border:2px solid #ff66aa;display:{show};}} .btn{{background:#ff66aa;color:white;padding:12px 25px;text-decoration:none;border-radius:8px;display:{show};margin-top:20px;}}</style>
     </head>
     <body><h1>Job: {job_id}</h1><p>Map: {meta.get('map_title','Loading...')}</p>
-    <div id="status">Status: {meta['status']} ({meta['percent']}%)</div><video id="v" controls><source src="/video/{job_id}.mp4" type="video/mp4"></video><br>
+    <div id="status">Status: {meta['status']} ({meta['percent']}%)</div>
+    
+    <video id="v" controls>{video_src_html}</video><br>
     <a id="d" href="/video/{job_id}.mp4" class="btn" download>Download</a>
-    <script>async function check(){{let r=await fetch('/status/{job_id}');let d=await r.json();document.getElementById('status').innerText='Status: '+d.status+' ('+d.percent+'%)';if(d.status==='complete'){{document.getElementById('v').style.display='inline';document.getElementById('d').style.display='inline-block';document.getElementById('v').load();}}else if(d.status!=='error'){{setTimeout(check,3000);}}}};if("{meta['status']}"!=='complete')check();</script></body></html>
+    
+    <script>
+    async function check() {{
+        let r = await fetch('/status/{job_id}');
+        let d = await r.json();
+        document.getElementById('status').innerText = 'Status: ' + d.status + ' (' + d.percent + '%)';
+        
+        if (d.status === 'complete') {{
+            let v = document.getElementById('v');
+            // If the video tag doesn't have a source yet, dynamically add it
+            if (!v.getAttribute('src') && v.innerHTML.trim() === '') {{
+                v.setAttribute('src', '/video/{job_id}.mp4');
+            }}
+            v.style.display = 'inline';
+            document.getElementById('d').style.display = 'inline-block';
+        }} else if (d.status !== 'error') {{
+            setTimeout(check, 3000);
+        }}
+    }};
+    if ("{meta.get('status')}" !== "complete") check();
+    </script></body></html>
     """
 
 @web_app.get("/video/{job_id}.mp4")
 async def stream_video(job_id: str):
-    jobs_vol.reload(); path = f"{JOBS_DIR}/render_{job_id}.mp4"
-    if not os.path.exists(path): raise HTTPException(404)
-    return FileResponse(path, media_type="video/mp4", headers={"Content-Disposition": "inline"})
+    path = f"{JOBS_DIR}/render_{job_id}.mp4"
+
+    for _ in range(10):
+        jobs_vol.reload()
+        if os.path.exists(path):
+            return FileResponse(path, media_type="video/mp4", headers={"Content-Disposition": "inline"})
+        await asyncio.sleep(0.5)
+        
+    raise HTTPException(404, "Video file not found or still syncing across cloud volume.")
 
 @app.function(image=image, volumes={"/mnt/assets": assets_vol, "/mnt/jobs": jobs_vol})
 @modal.asgi_app()
