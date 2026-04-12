@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from osrparse import Replay
 
+# --- 1. ENVIRONMENT & IMAGE ---
 image = (
     modal.Image.debian_slim()
     .apt_install(
@@ -23,6 +24,7 @@ image = (
 app = modal.App("aza-render-cloud")
 web_app = FastAPI(title="danser render API - Cloud")
 
+# --- 2. STORAGE & VOLUMES ---
 assets_vol = modal.Volume.from_name("osu-assets", create_if_missing=True)
 jobs_vol = modal.Volume.from_name("osu-jobs", create_if_missing=True)
 
@@ -34,6 +36,7 @@ METADATA_DIR = "/mnt/jobs/metadata"
 
 web_app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
+# --- 3. CORE LOGIC HELPERS ---
 
 def update_job_metadata(job_id: str, updates: dict):
     os.makedirs(METADATA_DIR, exist_ok=True)
@@ -74,6 +77,7 @@ async def ensure_beatmap(osr_path: str, api_key: str, job_id: str) -> dict:
             return {"success": os.path.exists(osz_path), "beatmap_id": b_id, "error": "Download failed"}
     except Exception as e: return {"success": False, "error": str(e)}
 
+# --- 4. GPU WORKER ---
 
 @app.function(
     image=image, gpu="T4",
@@ -157,16 +161,26 @@ async def cloud_render_task(job_id: str, data: dict):
             await asyncio.gather(stream_output(proc.stdout), stream_output(proc.stderr)); await proc.wait()
 
         final_mp4 = f"{JOBS_DIR}/{target_name}.mp4"
+        thumb_path = f"{JOBS_DIR}/thumb_{job_id}.jpg"
         found = False
+        
         for p in [final_mp4, f"{final_mp4}.mp4", f"/root/danser/videos{JOBS_DIR}/{target_name}.mp4", f"/root/danser/videos{JOBS_DIR}/{target_name}.mp4.mp4"]:
             if os.path.exists(p):
                 if p != final_mp4: shutil.move(p, final_mp4)
                 found = True; break
         
+        # FIX: Generate a thumbnail automatically 15 seconds into the video
+        if found:
+            thumb_proc = await asyncio.create_subprocess_exec(
+                "ffmpeg", "-y", "-ss", "00:00:15", "-i", final_mp4, "-vframes", "1", "-q:v", "2", thumb_path
+            )
+            await thumb_proc.wait()
+
         update_job_metadata(job_id, {"status": "complete" if found else "error", "percent": 100 if found else 25})
     except Exception as e: update_job_metadata(job_id, {"status": "error", "error": str(e)})
     finally: jobs_vol.commit()
 
+# --- 5. ROUTES ---
 
 @web_app.get("/")
 def home(): return HTMLResponse("<h1>🎮 OsuRender API Online</h1><p><a href='/jobs'>History</a> | <a href='/docs'>Docs</a></p>")
@@ -279,22 +293,40 @@ async def view_player(job_id: str):
     
     video_src_html = f'<source src="/video/{job_id}.mp4" type="video/mp4">' if is_complete else ''
     
+    # FIX: Comprehensive Meta Tags for Discord, Twitter, WhatsApp, and Facebook
     return f"""
     <html><head>
-        <title>OsuRender: {job_id}</title>
-        <meta property="og:title" content="OsuRender Job: {meta.get('map_title','Loading...')}">
+        <title>OsuRender: {meta.get('map_title', job_id)}</title>
+        <meta name="description" content="Watch this osu! replay render powered by OsuRender Cloud API.">
+        <meta name="theme-color" content="#ff66aa">
+        
+        <meta property="og:title" content="OsuRender Job: {meta.get('map_title', 'Loading...')}">
+        <meta property="og:description" content="Click to watch this osu! replay render.">
         <meta property="og:type" content="video.other">
+        <meta property="og:url" content="https://api.render.azaken.com/view/{job_id}">
+        <meta property="og:image" content="https://api.render.azaken.com/thumbnail/{job_id}.jpg">
         <meta property="og:video" content="https://api.render.azaken.com/video/{job_id}.mp4">
+        <meta property="og:video:secure_url" content="https://api.render.azaken.com/video/{job_id}.mp4">
         <meta property="og:video:type" content="video/mp4">
         <meta property="og:video:width" content="1920">
         <meta property="og:video:height" content="1080">
-        <meta name="theme-color" content="#ff66aa">
+
+        <meta name="twitter:card" content="player">
+        <meta name="twitter:title" content="OsuRender: {meta.get('map_title', 'Loading...')}">
+        <meta name="twitter:description" content="Watch this osu! replay render.">
+        <meta name="twitter:image" content="https://api.render.azaken.com/thumbnail/{job_id}.jpg">
+        <meta name="twitter:player" content="https://api.render.azaken.com/view/{job_id}">
+        <meta name="twitter:player:width" content="1920">
+        <meta name="twitter:player:height" content="1080">
+        <meta name="twitter:player:stream" content="https://api.render.azaken.com/video/{job_id}.mp4">
+        <meta name="twitter:player:stream:content_type" content="video/mp4">
+        
         <style>body{{background:#0f0f0f;color:#ff66aa;font-family:sans-serif;text-align:center;padding:40px;}} video{{width:80%;border:2px solid #ff66aa;display:{show};}} .btn{{background:#ff66aa;color:white;padding:12px 25px;text-decoration:none;border-radius:8px;display:{show};margin-top:20px;}}</style>
     </head>
     <body><h1>Job: {job_id}</h1><p>Map: {meta.get('map_title','Loading...')}</p>
     <div id="status">Status: {meta['status']} ({meta['percent']}%)</div>
     
-    <video id="v" controls>{video_src_html}</video><br>
+    <video id="v" controls poster="/thumbnail/{job_id}.jpg">{video_src_html}</video><br>
     <a id="d" href="/video/{job_id}.mp4" class="btn" download>Download</a>
     
     <script>
@@ -305,7 +337,6 @@ async def view_player(job_id: str):
         
         if (d.status === 'complete') {{
             let v = document.getElementById('v');
-            // If the video tag doesn't have a source yet, dynamically add it
             if (!v.getAttribute('src') && v.innerHTML.trim() === '') {{
                 v.setAttribute('src', '/video/{job_id}.mp4');
             }}
@@ -318,17 +349,24 @@ async def view_player(job_id: str):
     if ("{meta.get('status')}" !== "complete") check();
     </script></body></html>
     """
+@web_app.get("/thumbnail/{job_id}.jpg")
+async def stream_thumbnail(job_id: str):
+    path = f"{JOBS_DIR}/thumb_{job_id}.jpg"
+    for _ in range(10):
+        jobs_vol.reload()
+        if os.path.exists(path):
+            return FileResponse(path, media_type="image/jpeg")
+        await asyncio.sleep(0.5)
+    raise HTTPException(404, "Thumbnail not found")
 
 @web_app.get("/video/{job_id}.mp4")
 async def stream_video(job_id: str):
     path = f"{JOBS_DIR}/render_{job_id}.mp4"
-
     for _ in range(10):
         jobs_vol.reload()
         if os.path.exists(path):
             return FileResponse(path, media_type="video/mp4", headers={"Content-Disposition": "inline"})
         await asyncio.sleep(0.5)
-        
     raise HTTPException(404, "Video file not found or still syncing across cloud volume.")
 
 @app.function(image=image, volumes={"/mnt/assets": assets_vol, "/mnt/jobs": jobs_vol})
