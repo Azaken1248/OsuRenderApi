@@ -30,5 +30,6 @@ docker-compose.override.yml
 
 # --- Misc ---
 thing.txt
+output.txt
 *.log
 pyrightconfig.json
