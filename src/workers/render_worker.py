@@ -156,7 +156,11 @@ async def _process_render_job(job_id: str):
                                 pass
 
                     await asyncio.gather(read_stdout(), read_stderr())
-                    await proc.wait()
+                    try:
+                        await asyncio.wait_for(proc.wait(), timeout=settings.render_timeout_seconds)
+                    except asyncio.TimeoutError:
+                        proc.kill()
+                        raise Exception(f"Render timeout ({settings.render_timeout_seconds} seconds)")
 
                     if proc.returncode != 0:
                         raise Exception("Danser rendering failed.")
@@ -205,6 +209,12 @@ async def _process_render_job(job_id: str):
                 await db.commit()
 
 
-@celery_app.task(name="process_render_job", bind=True, max_retries=3)
+@celery_app.task(
+    name="process_render_job", 
+    bind=True, 
+    max_retries=3,
+    time_limit=660, 
+    soft_time_limit=600
+)
 def process_render_job(self, job_id: str):
     asyncio.run(_process_render_job(job_id))
