@@ -42,9 +42,11 @@ async def fetch_beatmap_with_backoff(client: httpx.AsyncClient, h: str, max_retr
 async def _process_render_job(job_id: str):
     async with async_session_factory() as db:
         result = await db.execute(select(Job).where(Job.id == uuid.UUID(job_id)))
-        job = result.scalar_one_or_none()
-        if not job:
+        job_result = result.scalar_one_or_none()
+        if not job_result:
             return
+            
+        job: Job = job_result
 
         try:
             job.status = JobStatus.DOWNLOADING
@@ -141,9 +143,10 @@ async def _process_render_job(job_id: str):
                                 if "Progress" in line_str:
                                     try:
                                         p = float(line_str.split(":")[1].replace("%", "").strip())
-                                        job.progress = p
-                                        db.add(job)
-                                        await db.commit()
+                                        if job is not None:
+                                            job.progress = p
+                                            db.add(job)
+                                            await db.commit()
                                     except Exception:
                                         pass
 
@@ -188,16 +191,18 @@ async def _process_render_job(job_id: str):
                         content_type="image/jpeg"
                     )
 
-                job.video_storage_key = video_key
-                job.thumb_storage_key = thumb_key
-                job.status = JobStatus.COMPLETED
-                job.progress = 100.0
-                await db.commit()
+                if job is not None:
+                    job.video_storage_key = video_key
+                    job.thumb_storage_key = thumb_key
+                    job.status = JobStatus.COMPLETED
+                    job.progress = 100.0
+                    await db.commit()
 
         except Exception as e:
-            job.status = JobStatus.FAILED
-            job.error_message = str(e)
-            await db.commit()
+            if 'job' in locals() and job is not None:
+                job.status = JobStatus.FAILED
+                job.error_message = str(e)
+                await db.commit()
 
 
 @celery_app.task(name="process_render_job", bind=True, max_retries=3)
