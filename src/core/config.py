@@ -10,8 +10,8 @@ class Settings(BaseSettings):
     app_name: str = "OsuRender API"
     app_version: str = "1.0.0"
     debug: bool = False
-    database_url: str = Field(default="postgresql+asyncpg://osurender:osurender@localhost:5432/osurender")
-    database_url_sync: str = Field(default="postgresql+psycopg2://osurender:osurender@localhost:5432/osurender")
+    database_url: str = Field(default="postgresql+asyncpg://osurender:osurender@localhost:5433/osurender")
+    database_url_sync: str = Field(default="postgresql+psycopg2://osurender:osurender@localhost:5433/osurender")
     redis_url: str = Field(default="redis://localhost:6379/0")
     storage_endpoint: str = Field(default="localhost:9000")
     storage_access_key: str = Field(default="minioadmin")
