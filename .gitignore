@@ -1,4 +1,32 @@
-*.js
-__pycache__
-venv
+# ==============================================================================
+# OsuRender API - Git Ignore
+# ==============================================================================
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+venv/
+.venv/
+
+# --- Environment ---
+.env
+
+# --- IDE ---
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# --- Local data directories ---
+downloads/
+jobs/
+
+# --- Docker ---
+docker-compose.override.yml
+
+# --- Misc ---
 thing.txt
+*.log
