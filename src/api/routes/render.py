@@ -89,6 +89,10 @@ async def submit_render(
     db.add(job)
     await db.flush() 
     await db.refresh(job)
+
+    from src.workers.render_worker import process_render_job
+    process_render_job.delay(str(job.id))
+
     return JobCreatedResponse(
         job_id=job.id,
         status=job.status.value,
