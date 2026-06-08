@@ -16,12 +16,15 @@ class StorageClient:
         if not self.client.bucket_exists(self.bucket):
             self.client.make_bucket(self.bucket)
 
-    def upload_file(self, object_name: str, data: bytes, content_type: str = "application/octet-stream"):
+    def upload_file(self, object_name: str, data, length: int, content_type: str = "application/octet-stream"):
+        if isinstance(data, bytes):
+            data = io.BytesIO(data)
+            
         self.client.put_object(
             bucket_name=self.bucket,
             object_name=object_name,
-            data=io.BytesIO(data),
-            length=len(data),
+            data=data,
+            length=length,
             content_type=content_type,
         )
 

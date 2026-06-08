@@ -41,14 +41,15 @@ async def submit_render(
             status_code=400,
             detail="File must be an osu! replay (.osr) file.",
         )
-    content = await replay.read()
     max_bytes = settings.max_replay_size_mb * 1024 * 1024
-    if len(content) > max_bytes:
+    file_size = replay.size or 0
+    
+    if file_size > max_bytes:
         raise HTTPException(
             status_code=413,
             detail=f"Replay file exceeds maximum size of {settings.max_replay_size_mb}MB.",
         )
-    if len(content) == 0:
+    if file_size == 0:
         raise HTTPException(
             status_code=400,
             detail="Uploaded replay file is empty.",
@@ -73,7 +74,8 @@ async def submit_render(
     
     storage_client.upload_file(
         object_name=replay_key,
-        data=content,
+        data=replay.file,
+        length=file_size,
         content_type=replay.content_type or "application/octet-stream"
     )
 
