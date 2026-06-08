@@ -21,11 +21,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Create the job_status enum type
     job_status_enum = postgresql.ENUM(
         "queued", "downloading", "rendering", "completed", "failed",
         name="job_status",
-        create_type=True,
+        create_type=False,
     )
     job_status_enum.create(op.get_bind(), checkfirst=True)
 
