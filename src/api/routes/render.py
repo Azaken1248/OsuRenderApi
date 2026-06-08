@@ -1,8 +1,10 @@
 import uuid
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.schemas import RenderConfig, JobCreatedResponse
 from src.core.config import get_settings
+from src.core.limiter import limiter
+from src.core.storage import storage_client
 from src.db.models import Job, JobStatus
 from src.db.session import get_db
 router = APIRouter()
@@ -14,7 +16,9 @@ router = APIRouter()
     description="Upload a .osr replay file with rendering parameters. "
                 "Returns a job_id that can be used to track progress.",
 )
+@limiter.limit("5/minute")
 async def submit_render(
+    request: Request,
     replay: UploadFile = File(
         ...,
         description="The .osr replay file to render.",
@@ -66,6 +70,13 @@ async def submit_render(
         raise HTTPException(status_code=422, detail=str(e))
     job_id = uuid.uuid4()
     replay_key = f"replays/{job_id}/{replay.filename}"
+    
+    storage_client.upload_file(
+        object_name=replay_key,
+        data=content,
+        content_type=replay.content_type or "application/octet-stream"
+    )
+
     job = Job(
         id=job_id,
         status=JobStatus.QUEUED,

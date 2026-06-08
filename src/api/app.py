@@ -1,8 +1,14 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+
 from src.core.config import get_settings
+from src.core.limiter import limiter
 from src.api.routes import health, jobs, render, skins
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
@@ -33,6 +39,19 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception):
+        import logging
+        logging.error(f"Unhandled exception: {exc}")
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error. Please try again later."},
+        )
+
     app.include_router(health.router, tags=["Health"])
     app.include_router(render.router, prefix="/v1", tags=["Rendering"])
     app.include_router(jobs.router, prefix="/v1", tags=["Jobs"])

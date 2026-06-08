@@ -29,7 +29,7 @@ class Job(Base):
         default=uuid.uuid4,
     )
     status: Mapped[JobStatus] = mapped_column(
-        Enum(JobStatus, name="job_status", create_type=True),
+        Enum(JobStatus, name="job_status", create_type=True, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
         default=JobStatus.QUEUED,
     )
