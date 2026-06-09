@@ -41,7 +41,6 @@ async def view_player(
         )
         
     is_complete = job.status.value == "completed"
-    show = "inline-block" if is_complete else "none"
     
     video_url = f"/v1/artifacts/{job.video_storage_key}" if job.video_storage_key else ""
     thumb_url = f"/v1/artifacts/{job.thumb_storage_key}" if job.thumb_storage_key else ""
@@ -58,7 +57,6 @@ async def view_player(
             "job_id": job.id.hex,
             "status": job.status.value,
             "progress": job.progress,
-            "show": show,
             "thumb_url": thumb_url,
             "video_url": video_url,
             "video_src_html": video_src_html,
