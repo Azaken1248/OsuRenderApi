@@ -31,16 +31,17 @@ assets_vol = modal.Volume.from_name("osu-assets", create_if_missing=True)
     timeout=660,
     secrets=[modal.Secret.from_name("osurender-secrets")]
 )
-def gpu_render_task(job_id: str, osr_path: str, skin: str, patch: str, target_name: str, resolution: str) -> dict:
+def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch: str, target_name: str, bucket_name: str) -> dict:
     import asyncio
     import os
     from src.workers.modal_gpu import run_danser_on_gpu
     
     return asyncio.run(run_danser_on_gpu(
         job_id=job_id,
-        osr_path=osr_path,
+        set_id=set_id,
+        replay_key=replay_key,
         skin=skin,
         patch=patch,
         target_name=target_name,
-        resolution=resolution
+        bucket_name=bucket_name
     ))
