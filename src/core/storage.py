@@ -13,8 +13,11 @@ class StorageClient:
         )
         self.bucket = settings.storage_bucket_name
         
-        if not self.client.bucket_exists(self.bucket):
-            self.client.make_bucket(self.bucket)
+        try:
+            if not self.client.bucket_exists(self.bucket):
+                self.client.make_bucket(self.bucket)
+        except Exception as e:
+            print(f"Warning: Could not verify or create bucket (normal for restricted R2 tokens): {e}")
 
     def upload_file(self, object_name: str, data, length: int, content_type: str = "application/octet-stream"):
         if isinstance(data, bytes):
