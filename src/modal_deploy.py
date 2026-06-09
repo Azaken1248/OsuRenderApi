@@ -8,7 +8,7 @@ image = (
         "libgl1-mesa-dri", "libgbm1", "libgtk-3-0", "libasound2",
         "libxrender1", "libxtst6", "libxi6", "libxrandr2", "libxcursor1", "libxinerama1"
     )
-    .pip_install_from_requirements("requirements.txt")
+    .pip_install("boto3", "httpx")
     .run_commands(
         "wget https://github.com/Wieku/danser-go/releases/download/0.11.0/danser-0.11.0-linux.zip",
         "unzip danser-0.11.0-linux.zip -d /usr/local/bin/danser",
