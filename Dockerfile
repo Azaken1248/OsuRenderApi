@@ -4,6 +4,9 @@ WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    python3-dev \
     wget \
     unzip \
     ffmpeg \
@@ -39,7 +42,7 @@ ENV PYTHONPATH=/app
 COPY . .
 
 # Expose FastAPI port
-EXPOSE 8000
+EXPOSE 8727
 
 # Entrypoint script will handle migrations and starting the server
 CMD ["bash", "scripts/start.sh"]
