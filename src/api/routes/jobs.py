@@ -19,6 +19,7 @@ def _job_to_response(job: Job) -> JobStatusResponse:
         artifacts=ArtifactLinks(
             video_url=f"/v1/artifacts/{job.video_storage_key}" if job.video_storage_key else None,
             thumbnail_url=f"/v1/artifacts/{job.thumb_storage_key}" if job.thumb_storage_key else None,
+            logs_url=f"/v1/artifacts/logs/{job.id}.log" if job.status in ("completed", "failed") else None,
         ),
     )
 @router.get(

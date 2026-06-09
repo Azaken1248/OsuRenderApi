@@ -79,6 +79,7 @@ class JobCreatedResponse(BaseModel):
 class ArtifactLinks(BaseModel):
     video_url: Optional[str] = None
     thumbnail_url: Optional[str] = None
+    logs_url: Optional[str] = None
 class JobStatusResponse(BaseModel):
     job_id: uuid.UUID
     status: str

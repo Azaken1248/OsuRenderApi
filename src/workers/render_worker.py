@@ -161,10 +161,15 @@ async def _process_render_job(job_id: str):
                             stderr=asyncio.subprocess.PIPE
                         )
 
+                        log_path = os.path.join(tmpdir, "render.log")
+                        log_file = open(log_path, "w")
+
                         async def read_stdout():
                             if proc.stdout:
                                 async for line in proc.stdout:
                                     line_str = line.decode(errors="ignore")
+                                    log_file.write(line_str)
+                                    log_file.flush()
                                     if "Progress" in line_str:
                                         try:
                                             p = float(line_str.split(":")[1].replace("%", "").strip())
@@ -178,9 +183,12 @@ async def _process_render_job(job_id: str):
                         async def read_stderr():
                             if proc.stderr:
                                 async for line in proc.stderr:
-                                    pass
+                                    line_str = line.decode(errors="ignore")
+                                    log_file.write(line_str)
+                                    log_file.flush()
 
                         await asyncio.gather(read_stdout(), read_stderr())
+                        log_file.close()
                         try:
                             await asyncio.wait_for(proc.wait(), timeout=settings.render_timeout_seconds)
                         except asyncio.TimeoutError:
@@ -205,6 +213,7 @@ async def _process_render_job(job_id: str):
 
                     video_key = f"videos/{job_id}.mp4"
                     thumb_key = f"thumbnails/{job_id}.jpg"
+                    log_key = f"logs/{job_id}.log"
                     
                     storage_client.client.fput_object(
                         bucket_name=storage_client.bucket,
@@ -218,6 +227,13 @@ async def _process_render_job(job_id: str):
                             object_name=thumb_key,
                             file_path=thumb_path,
                             content_type="image/jpeg"
+                        )
+                    if os.path.exists(log_path):
+                        storage_client.client.fput_object(
+                            bucket_name=storage_client.bucket,
+                            object_name=log_key,
+                            file_path=log_path,
+                            content_type="text/plain"
                         )
 
                 if job is not None:

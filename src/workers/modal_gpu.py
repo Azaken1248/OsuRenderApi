@@ -60,6 +60,22 @@ async def run_danser_on_gpu(job_id: str, set_id: str, replay_key: str, skin: str
                 stderr=asyncio.subprocess.PIPE
             )
             
+            log_path = os.path.join(tmpdir, "render.log")
+            log_file = open(log_path, "w")
+            
+            async def read_stream(stream):
+                if stream:
+                    async for line in stream:
+                        line_str = line.decode(errors="ignore")
+                        log_file.write(line_str)
+                        log_file.flush()
+                        
+            await asyncio.gather(
+                read_stream(proc.stdout),
+                read_stream(proc.stderr)
+            )
+            log_file.close()
+            
             # We skip DB progress updates here because we are in the Modal GPU container and shouldn't hit the DB constantly.
             # Real-time progress updates are traded off for cost optimization. The celery worker waits for the full job.
             await proc.wait()
@@ -82,16 +98,20 @@ async def run_danser_on_gpu(job_id: str, set_id: str, replay_key: str, skin: str
             
             video_key = f"videos/{job_id}.mp4"
             thumb_key = f"thumbnails/{job_id}.jpg"
+            log_key = f"logs/{job_id}.log"
             
             # Upload artifacts
             s3.upload_file(video_path, bucket_name, video_key, ExtraArgs={"ContentType": "video/mp4"})
             if os.path.exists(thumb_path):
                 s3.upload_file(thumb_path, bucket_name, thumb_key, ExtraArgs={"ContentType": "image/jpeg"})
+            if os.path.exists(log_path):
+                s3.upload_file(log_path, bucket_name, log_key, ExtraArgs={"ContentType": "text/plain"})
                 
             return {
                 "success": True,
                 "video_key": video_key,
-                "thumb_key": thumb_key
+                "thumb_key": thumb_key,
+                "log_key": log_key
             }
             
     except Exception as e:
