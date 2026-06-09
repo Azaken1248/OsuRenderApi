@@ -135,6 +135,7 @@ async def _process_render_job(job_id: str):
                             else:
                                 raise Exception("Failed to download beatmap from mirror.")
 
+                    log_path = ""
                     if os.environ.get("MOCK_DANSER"):
                         await asyncio.sleep(1)
                         video_path = os.path.join(tmpdir, f"{target_name}.mp4")
@@ -143,6 +144,9 @@ async def _process_render_job(job_id: str):
                         thumb_path = os.path.join(tmpdir, "thumb.jpg")
                         with open(thumb_path, "wb") as f:
                             f.write(b"mock thumb data")
+                        log_path = os.path.join(tmpdir, "mock.log")
+                        with open(log_path, "wb") as f:
+                            f.write(b"mock log data")
                     else:
                         cmd = [
                             "xvfb-run", "-a", "-s", "-screen 0 1920x1080x24",
