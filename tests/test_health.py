@@ -4,7 +4,7 @@ from src.api.app import create_app
 
 app = create_app()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="session")
 async def test_root():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -13,7 +13,7 @@ async def test_root():
         assert "text/html" in response.headers.get("content-type", "")
         assert "OsuRender API" in response.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="session")
 async def test_health_check():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:

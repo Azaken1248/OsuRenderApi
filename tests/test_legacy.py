@@ -4,7 +4,7 @@ from src.api.app import create_app
 
 app = create_app()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="session")
 async def test_legacy_render_response_format():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -45,7 +45,7 @@ async def test_legacy_render_response_format():
         assert "last_updated" in status_data
         assert "error" in status_data
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="session")
 async def test_legacy_jobs_list():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
