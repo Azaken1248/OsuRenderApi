@@ -70,9 +70,11 @@ services:
     build: .
     container_name: osurender-api
     ports:
-      - "8000:8000"
+      - "${APP_PORT:-8000}:${APP_PORT:-8000}"
     environment:
       - WORKER_TYPE=api
+      - APP_HOST=${APP_HOST:-0.0.0.0}
+      - APP_PORT=${APP_PORT:-8000}
       - DB_URL=postgresql+asyncpg://osurender:osurender@postgres:5432/osurender
       - REDIS_URL=redis://redis:6379/0
       - STORAGE_ENDPOINT=${STORAGE_ENDPOINT:-minio:9000}

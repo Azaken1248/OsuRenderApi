@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     )
     app_name: str = "OsuRender API"
     app_version: str = "1.0.0"
+    app_host: str = "0.0.0.0"
+    app_port: int = 8000
     debug: bool = False
     database_url: str = Field(default="postgresql+asyncpg://osurender:osurender@localhost:5433/osurender")
     database_url_sync: str = Field(default="postgresql+psycopg2://osurender:osurender@localhost:5433/osurender")
