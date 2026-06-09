@@ -104,7 +104,8 @@ async def _process_render_job(job_id: str):
                     from src.modal_deploy import gpu_render_task
                     
                     # Offload the heavy rendering and beatmap downloading to Modal T4 GPU!
-                    result_dict = gpu_render_task.remote(  # type: ignore
+                    import typing
+                    result_raw = gpu_render_task.remote(  # type: ignore
                         job_id=job_id,
                         set_id=set_id,
                         replay_key=job.replay_storage_key,
@@ -113,6 +114,7 @@ async def _process_render_job(job_id: str):
                         target_name=target_name,
                         bucket_name=storage_client.bucket
                     )
+                    result_dict = typing.cast(dict, result_raw)
                     
                     if not result_dict.get("success"):
                         raise Exception(result_dict.get("error", "Modal GPU render failed"))
