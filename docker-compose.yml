@@ -83,6 +83,8 @@ services:
       - STORAGE_BUCKET_NAME=${STORAGE_BUCKET_NAME:-osurender}
       - STORAGE_USE_SSL=${STORAGE_USE_SSL:-false}
       - USE_MODAL_GPU=${USE_MODAL_GPU:-0}
+      - MODAL_TOKEN_ID=${MODAL_TOKEN_ID}
+      - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET}
     depends_on:
       postgres:
         condition: service_healthy
@@ -105,6 +107,8 @@ services:
       - STORAGE_BUCKET_NAME=${STORAGE_BUCKET_NAME:-osurender}
       - STORAGE_USE_SSL=${STORAGE_USE_SSL:-false}
       - USE_MODAL_GPU=${USE_MODAL_GPU:-0}
+      - MODAL_TOKEN_ID=${MODAL_TOKEN_ID}
+      - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET}
     depends_on:
       postgres:
         condition: service_healthy
