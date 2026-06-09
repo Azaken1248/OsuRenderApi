@@ -37,4 +37,7 @@ class StorageClient:
             object_name=object_name,
         )
 
+    def list_objects(self, prefix: str):
+        return self.client.list_objects(self.bucket, prefix=prefix, recursive=True)
+
 storage_client = StorageClient()

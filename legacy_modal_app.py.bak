@@ -20,7 +20,7 @@ image = (
         "chmod +x /root/danser/danser-cli"
     )
 )
-n
+
 app = modal.App("aza-render-cloud")
 web_app = FastAPI(title="danser render API - Cloud")
 
