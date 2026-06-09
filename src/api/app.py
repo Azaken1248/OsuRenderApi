@@ -7,7 +7,7 @@ from slowapi.errors import RateLimitExceeded
 
 from src.core.config import get_settings
 from src.core.limiter import limiter
-from src.api.routes import health, jobs, render, skins, artifacts
+from src.api.routes import health, jobs, render, skins, artifacts, view
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -53,6 +53,7 @@ def create_app() -> FastAPI:
         )
 
     app.include_router(health.router, tags=["Health"])
+    app.include_router(view.router, tags=["Web Player"])
     app.include_router(render.router, prefix="/v1", tags=["Rendering"])
     app.include_router(jobs.router, prefix="/v1", tags=["Jobs"])
     app.include_router(skins.router, prefix="/v1", tags=["Skins"])
