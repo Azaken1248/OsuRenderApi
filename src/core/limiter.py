@@ -2,7 +2,7 @@ import asyncio
 import inspect
 # Monkeypatch to prevent slowapi Python 3.14+ deprecation warnings
 if hasattr(inspect, "iscoroutinefunction"):
-    asyncio.iscoroutinefunction = inspect.iscoroutinefunction
+    asyncio.iscoroutinefunction = inspect.iscoroutinefunction  # type: ignore
 
 from slowapi import Limiter
 from slowapi.util import get_remote_address
