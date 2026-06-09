@@ -10,8 +10,8 @@ async def test_root():
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.get("/")
         assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "online"
+        assert "text/html" in response.headers.get("content-type", "")
+        assert "OsuRender API" in response.text
 
 @pytest.mark.asyncio
 async def test_health_check():
