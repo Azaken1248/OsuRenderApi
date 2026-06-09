@@ -104,7 +104,7 @@ async def _process_render_job(job_id: str):
                     from src.modal_deploy import gpu_render_task
                     
                     # Offload the heavy rendering and beatmap downloading to Modal T4 GPU!
-                    result_dict = gpu_render_task.remote(
+                    result_dict = gpu_render_task.remote(  # type: ignore
                         job_id=job_id,
                         set_id=set_id,
                         replay_key=job.replay_storage_key,
