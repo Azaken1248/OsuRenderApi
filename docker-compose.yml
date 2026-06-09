@@ -75,7 +75,8 @@ services:
       - WORKER_TYPE=api
       - APP_HOST=${APP_HOST:-0.0.0.0}
       - APP_PORT=${APP_PORT:-8000}
-      - DB_URL=postgresql+asyncpg://osurender:osurender@postgres:5432/osurender
+      - DATABASE_URL=postgresql+asyncpg://osurender:osurender@postgres:5432/osurender
+      - DATABASE_URL_SYNC=postgresql+psycopg2://osurender:osurender@postgres:5432/osurender
       - REDIS_URL=redis://redis:6379/0
       - STORAGE_ENDPOINT=${STORAGE_ENDPOINT:-minio:9000}
       - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:-minioadmin}
@@ -99,7 +100,8 @@ services:
     container_name: osurender-worker
     environment:
       - WORKER_TYPE=celery
-      - DB_URL=postgresql+asyncpg://osurender:osurender@postgres:5432/osurender
+      - DATABASE_URL=postgresql+asyncpg://osurender:osurender@postgres:5432/osurender
+      - DATABASE_URL_SYNC=postgresql+psycopg2://osurender:osurender@postgres:5432/osurender
       - REDIS_URL=redis://redis:6379/0
       - STORAGE_ENDPOINT=${STORAGE_ENDPOINT:-minio:9000}
       - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:-minioadmin}
