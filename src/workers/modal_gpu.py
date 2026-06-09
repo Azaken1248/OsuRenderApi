@@ -8,8 +8,6 @@ async def run_danser_on_gpu(job_id: str, set_id: str, replay_key: str, skin: str
     import boto3
     from botocore.client import Config
     
-    # We must use boto3 or MinIO to download the .osr, since we don't have src.core.storage config
-    # Modal secrets should provide S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET_KEY
     endpoint = os.environ.get("S3_ENDPOINT")
     access_key = os.environ.get("S3_ACCESS_KEY")
     secret_key = os.environ.get("S3_SECRET_KEY")
@@ -30,7 +28,6 @@ async def run_danser_on_gpu(job_id: str, set_id: str, replay_key: str, skin: str
             osr_path = os.path.join(tmpdir, "replay.osr")
             s3.download_file(bucket_name, replay_key, osr_path)
             
-            # Download beatmap .osz if not cached
             osz_path = os.path.join(SONGS_DIR, f"{set_id}.osz")
             os.makedirs(SONGS_DIR, exist_ok=True)
             if not os.path.exists(osz_path):
@@ -42,7 +39,6 @@ async def run_danser_on_gpu(job_id: str, set_id: str, replay_key: str, skin: str
                     else:
                         return {"success": False, "error": "Failed to download beatmap from mirror."}
                         
-            # Run danser
             cmd = [
                 "xvfb-run", "-a", "-s", "-screen 0 1920x1080x24",
                 DANSER_BIN,
@@ -76,8 +72,6 @@ async def run_danser_on_gpu(job_id: str, set_id: str, replay_key: str, skin: str
             )
             log_file.close()
             
-            # We skip DB progress updates here because we are in the Modal GPU container and shouldn't hit the DB constantly.
-            # Real-time progress updates are traded off for cost optimization. The celery worker waits for the full job.
             await proc.wait()
             
             if proc.returncode != 0:
@@ -100,7 +94,6 @@ async def run_danser_on_gpu(job_id: str, set_id: str, replay_key: str, skin: str
             thumb_key = f"thumbnails/{job_id}.jpg"
             log_key = f"logs/{job_id}.log"
             
-            # Upload artifacts
             s3.upload_file(video_path, bucket_name, video_key, ExtraArgs={"ContentType": "video/mp4"})
             if os.path.exists(thumb_path):
                 s3.upload_file(thumb_path, bucket_name, thumb_key, ExtraArgs={"ContentType": "image/jpeg"})

@@ -24,14 +24,10 @@ async def test_legacy_render_response_format():
         assert "job_id" in resp_data
         assert "view_url" in resp_data
         assert "video_url" in resp_data
-        assert "-" not in resp_data["job_id"]  # Hex format without dashes
+        assert "-" not in resp_data["job_id"]
         
         job_id = resp_data["job_id"]
         
-        # Test legacy status
-        # Since we use UUIDs internally, the legacy status endpoint needs a valid UUID.
-        # However, the legacy job_id we get might just be a hex string.
-        # Wait, our legacy endpoint takes uuid.UUID for job_id, so it accepts hex strings without dashes too!
         status_resp = await client.get(f"/status/{job_id}")
         assert status_resp.status_code == 200
         status_data = status_resp.json()

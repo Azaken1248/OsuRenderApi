@@ -103,7 +103,6 @@ async def _process_render_job(job_id: str):
                 if os.environ.get("USE_MODAL_GPU") == "1":
                     from src.modal_deploy import gpu_render_task
                     
-                    # Offload the heavy rendering and beatmap downloading to Modal T4 GPU!
                     import typing
                     result_raw = gpu_render_task.remote(  # type: ignore
                         job_id=job_id,
@@ -123,7 +122,6 @@ async def _process_render_job(job_id: str):
                     thumb_key = result_dict.get("thumb_key")
                     
                 else:
-                    # LOCAL EXECUTION
                     osz_path = os.path.join(SONGS_DIR, f"{set_id}.osz")
                     os.makedirs(SONGS_DIR, exist_ok=True)
                     if not os.path.exists(osz_path) and settings.osu_api_key:

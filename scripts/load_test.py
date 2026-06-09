@@ -21,7 +21,6 @@ async def submit_job(client: httpx.AsyncClient):
 
 async def main():
     async with httpx.AsyncClient() as client:
-        # Since the rate limit is 5/minute, submitting 10 jobs should hit the rate limit!
         tasks = [submit_job(client) for _ in range(10)]
         results = await asyncio.gather(*tasks)
         

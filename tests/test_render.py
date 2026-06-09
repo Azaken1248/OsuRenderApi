@@ -27,7 +27,6 @@ async def test_render_flow():
         
         job_id = resp_data["job_id"]
         
-        # 2. Check the job status
         get_resp = await client.get(f"/v1/jobs/{job_id}")
         assert get_resp.status_code == 200
         
