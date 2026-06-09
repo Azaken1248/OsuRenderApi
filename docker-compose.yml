@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: osurender
       POSTGRES_DB: osurender
     ports:
-      - "5433:5432"
+      - "${POSTGRES_PORT:-5434}:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
@@ -21,7 +21,7 @@ services:
     image: redis:7-alpine
     container_name: osurender-redis
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6380}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
