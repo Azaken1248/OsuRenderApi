@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OsuRender: {{ map_title }}</title>
+    <meta name="description" content="Watch this osu! replay render powered by OsuRender Cloud API.">
+    <meta name="theme-color" content="#ff66aa">
+    
+    <meta property="og:title" content="OsuRender Job: {{ map_title }}">
+    <meta property="og:description" content="Click to watch this osu! replay render.">
+    <meta property="og:type" content="video.other">
+    <meta property="og:url" content="{{ base_url }}/view/{{ job_id }}">
+    <meta property="og:image" content="{{ base_url }}{{ thumb_url }}">
+    <meta property="og:video" content="{{ base_url }}{{ video_url }}">
+    <meta property="og:video:secure_url" content="{{ base_url }}{{ video_url }}">
+    <meta property="og:video:type" content="video/mp4">
+    <meta property="og:video:width" content="1920">
+    <meta property="og:video:height" content="1080">
+
+    <meta name="twitter:card" content="player">
+    <meta name="twitter:title" content="OsuRender: {{ map_title }}">
+    <meta name="twitter:description" content="Watch this osu! replay render.">
+    <meta name="twitter:image" content="{{ base_url }}{{ thumb_url }}">
+    <meta name="twitter:player" content="{{ base_url }}/view/{{ job_id }}">
+    <meta name="twitter:player:width" content="1920">
+    <meta name="twitter:player:height" content="1080">
+    <meta name="twitter:player:stream" content="{{ base_url }}{{ video_url }}">
+    <meta name="twitter:player:stream:content_type" content="video/mp4">
+    
+    <style>
+        body {
+            background-color: #111111;
+            color: #eeeeee;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 1000px;
+            width: 100%;
+            background-color: #1a1a1a;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        h1 {
+            color: #ff66aa;
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+        }
+        .subtitle {
+            color: #888888;
+            font-size: 1.1rem;
+            margin-bottom: 1.5rem;
+        }
+        #status-badge {
+            display: inline-block;
+            background-color: #222222;
+            color: #eeeeee;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: 600;
+            margin-bottom: 2rem;
+        }
+        video {
+            width: 100%;
+            border-radius: 8px;
+            background-color: #000000;
+            display: {{ show }};
+            box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+            margin-bottom: 1.5rem;
+        }
+        .btn {
+            background-color: #ff66aa;
+            color: white;
+            padding: 0.75rem 2rem;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+            display: {{ show }};
+            transition: background-color 0.2s;
+        }
+        .btn:hover {
+            background-color: #ff4499;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{{ map_title }}</h1>
+        <div class="subtitle">Job ID: {{ job_id }}</div>
+        <div id="status-badge">Status: {{ status }} ({{ progress }}%)</div>
+        
+        <video id="v" controls poster="{{ thumb_url }}">{{ video_src_html | safe }}</video><br>
+        <a id="d" href="{{ video_url }}" class="btn" download>Download Video</a>
+    </div>
+    
+    <script>
+    async function check() {
+        let r = await fetch('/v1/jobs/{{ job_id }}');
+        if (!r.ok) return;
+        let d = await r.json();
+        document.getElementById('status-badge').innerText = 'Status: ' + d.status + ' (' + d.progress + '%)';
+        
+        if (d.status === 'completed') {
+            let v = document.getElementById('v');
+            if (!v.getAttribute('src') && v.innerHTML.trim() === '') {
+                v.setAttribute('src', d.artifacts.video_url);
+                document.getElementById('d').href = d.artifacts.video_url;
+            }
+            v.style.display = 'inline-block';
+            document.getElementById('d').style.display = 'inline-block';
+        } else if (d.status !== 'failed') {
+            setTimeout(check, 3000);
+        }
+    }
+    if ("{{ status }}" !== "completed") check();
+    </script>
+</body>
+</html>

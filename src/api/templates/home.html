@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OsuRender API</title>
+    <style>
+        body {
+            background-color: #111111;
+            color: #eeeeee;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            text-align: center;
+        }
+        h1 {
+            color: #ff66aa;
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+        p {
+            font-size: 1.2rem;
+            color: #888888;
+            margin-bottom: 2rem;
+        }
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+        }
+        a {
+            background-color: #ff66aa;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+        a:hover {
+            background-color: #ff4499;
+        }
+        .secondary {
+            background-color: #222222;
+        }
+        .secondary:hover {
+            background-color: #333333;
+        }
+    </style>
+</head>
+<body>
+    <h1>OsuRender API</h1>
+    <p>High-quality osu! replay rendering service</p>
+    <div class="nav-links">
+        <a href="/api/docs">Swagger UI</a>
+        <a href="/api/redoc" class="secondary">ReDoc</a>
+    </div>
+</body>
+</html>
