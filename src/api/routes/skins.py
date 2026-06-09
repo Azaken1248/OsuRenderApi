@@ -9,7 +9,16 @@ router = APIRouter()
     description="Returns a list of all available osu! skins for rendering.",
 )
 async def list_skins():
-    return []
+    try:
+        objects = storage_client.list_objects(prefix="skins/")
+        skins = []
+        for obj in objects:
+            if obj.object_name and obj.object_name.endswith(".osk"):
+                skin_name = obj.object_name.split("/")[-1][:-4]
+                skins.append(skin_name)
+        return {"skins": skins}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list skins: {str(e)}")
 @router.post(
     "/skins/upload",
     summary="Upload a custom skin",
