@@ -17,7 +17,7 @@ templates = Jinja2Templates(directory="src/api/templates")
     description="Returns the root level home HTML for backwards compatibility.",
 )
 async def home(request: Request):
-    return templates.TemplateResponse("home.html", {"request": request})
+    return templates.TemplateResponse(request, "home.html")
 
 @router.get(
     "/view/{job_id}",
@@ -50,9 +50,9 @@ async def view_player(
     map_title = job.map_title or job.id.hex
     
     return templates.TemplateResponse(
+        request,
         "view_player.html",
         {
-            "request": request,
             "map_title": map_title,
             "job_id": job.id.hex,
             "status": job.status.value,
