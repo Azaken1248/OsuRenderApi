@@ -31,3 +31,5 @@ slowapi==0.1.9
 # --- Object Storage (S3-compatible) ---
 minio==7.2.16
 celery
+boto3==1.34.0
+modal==0.62.15

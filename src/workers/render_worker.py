@@ -83,16 +83,6 @@ async def _process_render_job(job_id: str):
                         job.map_title = "Unknown Map (Mocked or Missing API Key)"
                         await db.commit()
 
-                    osz_path = os.path.join(SONGS_DIR, f"{set_id}.osz")
-                    os.makedirs(SONGS_DIR, exist_ok=True)
-                    if not os.path.exists(osz_path) and settings.osu_api_key:
-                        dl = await client.get(f"https://api.nerinyan.moe/d/{set_id}", follow_redirects=True, timeout=60.0)
-                        if dl.status_code == 200:
-                            with open(osz_path, "wb") as f:
-                                f.write(dl.content)
-                        else:
-                            raise Exception("Failed to download beatmap from mirror.")
-
                 job.status = JobStatus.RENDERING
                 await db.commit()
 
@@ -110,90 +100,123 @@ async def _process_render_job(job_id: str):
                     }
                 })
 
-                if os.environ.get("MOCK_DANSER"):
-                    await asyncio.sleep(1)
-                    video_path = os.path.join(tmpdir, f"{target_name}.mp4")
-                    with open(video_path, "wb") as f:
-                        f.write(b"mock video data")
-                    thumb_path = os.path.join(tmpdir, "thumb.jpg")
-                    with open(thumb_path, "wb") as f:
-                        f.write(b"mock thumb data")
+                if os.environ.get("USE_MODAL_GPU") == "1":
+                    from src.modal_deploy import gpu_render_task
+                    
+                    # Offload the heavy rendering and beatmap downloading to Modal T4 GPU!
+                    result_dict = gpu_render_task.remote(
+                        job_id=job_id,
+                        set_id=set_id,
+                        replay_key=job.replay_storage_key,
+                        skin=job.config.get("skin", "Default"),
+                        patch=patch,
+                        target_name=target_name,
+                        bucket_name=storage_client.bucket
+                    )
+                    
+                    if not result_dict.get("success"):
+                        raise Exception(result_dict.get("error", "Modal GPU render failed"))
+                        
+                    video_key = result_dict.get("video_key")
+                    thumb_key = result_dict.get("thumb_key")
+                    
                 else:
-                    cmd = [
-                        "xvfb-run", "-a", "-s", "-screen 0 1920x1080x24",
-                        DANSER_BIN,
-                        f"-replay={osr_path}",
-                        f"-skin={job.config.get('skin', 'Default')}",
-                        f"-sPatch={patch}",
-                        f"-out={target_name}",
-                        "-record"
-                    ]
+                    # LOCAL EXECUTION
+                    osz_path = os.path.join(SONGS_DIR, f"{set_id}.osz")
+                    os.makedirs(SONGS_DIR, exist_ok=True)
+                    if not os.path.exists(osz_path) and settings.osu_api_key:
+                        async with httpx.AsyncClient() as client:
+                            dl = await client.get(f"https://api.nerinyan.moe/d/{set_id}", follow_redirects=True, timeout=60.0)
+                            if dl.status_code == 200:
+                                with open(osz_path, "wb") as f:
+                                    f.write(dl.content)
+                            else:
+                                raise Exception("Failed to download beatmap from mirror.")
 
-                    proc = await asyncio.create_subprocess_exec(
-                        *cmd,
-                        cwd=tmpdir,
-                        stdout=asyncio.subprocess.PIPE,
-                        stderr=asyncio.subprocess.PIPE
-                    )
-
-                    async def read_stdout():
-                        if proc.stdout:
-                            async for line in proc.stdout:
-                                line_str = line.decode(errors="ignore")
-                                if "Progress" in line_str:
-                                    try:
-                                        p = float(line_str.split(":")[1].replace("%", "").strip())
-                                        if job is not None:
-                                            job.progress = p
-                                            db.add(job)
-                                            await db.commit()
-                                    except Exception:
-                                        pass
-
-                    async def read_stderr():
-                        if proc.stderr:
-                            async for line in proc.stderr:
-                                pass
-
-                    await asyncio.gather(read_stdout(), read_stderr())
-                    try:
-                        await asyncio.wait_for(proc.wait(), timeout=settings.render_timeout_seconds)
-                    except asyncio.TimeoutError:
-                        proc.kill()
-                        raise Exception(f"Render timeout ({settings.render_timeout_seconds} seconds)")
-
-                    if proc.returncode != 0:
-                        raise Exception("Danser rendering failed.")
-
-                    video_path = os.path.join(tmpdir, "videos", f"{target_name}.mp4")
-                    if not os.path.exists(video_path):
+                    if os.environ.get("MOCK_DANSER"):
+                        await asyncio.sleep(1)
                         video_path = os.path.join(tmpdir, f"{target_name}.mp4")
+                        with open(video_path, "wb") as f:
+                            f.write(b"mock video data")
+                        thumb_path = os.path.join(tmpdir, "thumb.jpg")
+                        with open(thumb_path, "wb") as f:
+                            f.write(b"mock thumb data")
+                    else:
+                        cmd = [
+                            "xvfb-run", "-a", "-s", "-screen 0 1920x1080x24",
+                            DANSER_BIN,
+                            f"-replay={osr_path}",
+                            f"-skin={job.config.get('skin', 'Default')}",
+                            f"-sPatch={patch}",
+                            f"-out={target_name}",
+                            "-record"
+                        ]
+
+                        proc = await asyncio.create_subprocess_exec(
+                            *cmd,
+                            cwd=tmpdir,
+                            stdout=asyncio.subprocess.PIPE,
+                            stderr=asyncio.subprocess.PIPE
+                        )
+
+                        async def read_stdout():
+                            if proc.stdout:
+                                async for line in proc.stdout:
+                                    line_str = line.decode(errors="ignore")
+                                    if "Progress" in line_str:
+                                        try:
+                                            p = float(line_str.split(":")[1].replace("%", "").strip())
+                                            if job is not None:
+                                                job.progress = p
+                                                db.add(job)
+                                                await db.commit()
+                                        except Exception:
+                                            pass
+
+                        async def read_stderr():
+                            if proc.stderr:
+                                async for line in proc.stderr:
+                                    pass
+
+                        await asyncio.gather(read_stdout(), read_stderr())
+                        try:
+                            await asyncio.wait_for(proc.wait(), timeout=settings.render_timeout_seconds)
+                        except asyncio.TimeoutError:
+                            proc.kill()
+                            raise Exception(f"Render timeout ({settings.render_timeout_seconds} seconds)")
+
+                        if proc.returncode != 0:
+                            raise Exception("Danser rendering failed.")
+
+                        video_path = os.path.join(tmpdir, "videos", f"{target_name}.mp4")
                         if not os.path.exists(video_path):
-                            raise Exception("Output video not found.")
+                            video_path = os.path.join(tmpdir, f"{target_name}.mp4")
+                            if not os.path.exists(video_path):
+                                raise Exception("Output video not found.")
 
-                    thumb_path = os.path.join(tmpdir, "thumb.jpg")
-                    thumb_proc = await asyncio.create_subprocess_exec(
-                        "ffmpeg", "-y", "-ss", "00:00:15", "-i", video_path, "-vframes", "1", "-q:v", "2", thumb_path,
-                        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-                    )
-                    await thumb_proc.wait()
+                        thumb_path = os.path.join(tmpdir, "thumb.jpg")
+                        thumb_proc = await asyncio.create_subprocess_exec(
+                            "ffmpeg", "-y", "-ss", "00:00:15", "-i", video_path, "-vframes", "1", "-q:v", "2", thumb_path,
+                            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+                        )
+                        await thumb_proc.wait()
 
-                video_key = f"videos/{job_id}.mp4"
-                thumb_key = f"thumbnails/{job_id}.jpg"
-                
-                storage_client.client.fput_object(
-                    bucket_name=storage_client.bucket,
-                    object_name=video_key,
-                    file_path=video_path,
-                    content_type="video/mp4"
-                )
-                if os.path.exists(thumb_path):
+                    video_key = f"videos/{job_id}.mp4"
+                    thumb_key = f"thumbnails/{job_id}.jpg"
+                    
                     storage_client.client.fput_object(
                         bucket_name=storage_client.bucket,
-                        object_name=thumb_key,
-                        file_path=thumb_path,
-                        content_type="image/jpeg"
+                        object_name=video_key,
+                        file_path=video_path,
+                        content_type="video/mp4"
                     )
+                    if os.path.exists(thumb_path):
+                        storage_client.client.fput_object(
+                            bucket_name=storage_client.bucket,
+                            object_name=thumb_key,
+                            file_path=thumb_path,
+                            content_type="image/jpeg"
+                        )
 
                 if job is not None:
                     job.video_storage_key = video_key
@@ -207,7 +230,6 @@ async def _process_render_job(job_id: str):
                 job.status = JobStatus.FAILED
                 job.error_message = str(e)
                 await db.commit()
-
 
 @celery_app.task(
     name="process_render_job", 
