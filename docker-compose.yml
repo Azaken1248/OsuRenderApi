@@ -66,6 +66,52 @@ services:
       "
     restart: "no"
 
+  api:
+    build: .
+    container_name: osurender-api
+    ports:
+      - "8000:8000"
+    environment:
+      - WORKER_TYPE=api
+      - DB_URL=postgresql+asyncpg://osurender:osurender@postgres:5432/osurender
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_ENDPOINT=minio:9000
+      - STORAGE_ACCESS_KEY=minioadmin
+      - STORAGE_SECRET_KEY=minioadmin
+      - STORAGE_BUCKET_NAME=osurender
+      - STORAGE_USE_SSL=false
+      - USE_MODAL_GPU=0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build: .
+    container_name: osurender-worker
+    environment:
+      - WORKER_TYPE=celery
+      - DB_URL=postgresql+asyncpg://osurender:osurender@postgres:5432/osurender
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_ENDPOINT=minio:9000
+      - STORAGE_ACCESS_KEY=minioadmin
+      - STORAGE_SECRET_KEY=minioadmin
+      - STORAGE_BUCKET_NAME=osurender
+      - STORAGE_USE_SSL=false
+      - USE_MODAL_GPU=0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   pg_data:
     driver: local

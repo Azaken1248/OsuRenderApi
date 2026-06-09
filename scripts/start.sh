@@ -1,0 +1,15 @@
+#!/bin/bash
+set -e
+
+# Run database migrations
+echo "Running Alembic migrations..."
+alembic upgrade head
+
+# Start the application based on the WORKER_TYPE environment variable
+if [ "$WORKER_TYPE" = "celery" ]; then
+    echo "Starting Celery worker..."
+    celery -A src.core.celery_app.celery_app worker --loglevel=info -c 2
+else
+    echo "Starting FastAPI server..."
+    exec uvicorn src.api.app:create_app --host 0.0.0.0 --port 8000 --factory --proxy-headers
+fi

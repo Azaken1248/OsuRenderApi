@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+.pytest_cache/
+downloads/
+jobs/
+tests/
+.env
+.git/
+.vscode/
+legacy_modal_app.py.bak
+output.txt
