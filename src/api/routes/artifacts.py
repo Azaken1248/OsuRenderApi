@@ -17,7 +17,8 @@ async def get_artifact(request: Request, key: str):
                     bucket_name=storage_client.bucket,
                     object_name=key,
                 )
-                return Response(content=response.read(), media_type="text/plain")
+                with response:
+                    return Response(content=response.read(), media_type="text/plain")
             except Exception:
                 # If log doesn't exist yet, just return empty
                 return Response(content="", media_type="text/plain")
