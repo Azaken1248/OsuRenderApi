@@ -108,9 +108,9 @@ async def _process_render_job(job_id: str):
                 if os.environ.get("USE_MODAL_GPU") == "1":
                     import modal
                     
-                    gpu_render_fn = modal.Function.lookup("osurender-gpu-worker", "gpu_render_task")  # type: ignore[attr-defined]
+                    gpu_render_fn = modal.Function.from_name("osurender-gpu-worker", "gpu_render_task")  # type: ignore[attr-defined]
                     
-                    result_dict = gpu_render_fn.remote(
+                    result_dict = gpu_render_fn.remote(  # type: ignore
                         job_id=job_id,
                         set_id=set_id,
                         replay_key=job.replay_storage_key,
