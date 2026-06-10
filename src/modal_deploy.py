@@ -132,7 +132,6 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
                 "xvfb-run", "-a", "-s",
                 "-screen 0 1920x1080x24 +extension GLX +render -noreset",
                 DANSER_BIN,
-                "-nodbcheck",
                 f"-replay={osr_path}",
                 f"-skin={skin}",
                 f"-sPatch={patch}",
