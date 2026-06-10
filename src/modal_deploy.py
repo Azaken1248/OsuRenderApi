@@ -144,12 +144,40 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
             log(f"Command: {' '.join(cmd)}")
 
             danser_log_path = os.path.join(tmpdir, "danser.log")
-            with open(danser_log_path, "w") as danser_log:
-                proc = subprocess.run(
-                    cmd, env=env,
-                    stdout=danser_log, stderr=subprocess.STDOUT,
-                    timeout=600
-                )
+            
+            import threading
+            stop_event = threading.Event()
+            
+            def upload_log_worker():
+                while not stop_event.is_set():
+                    if os.path.exists(danser_log_path):
+                        try:
+                            with open(danser_log_path, "r") as f:
+                                current_log = f.read()
+                            if current_log:
+                                s3.put_object(
+                                    Bucket=bucket_name,
+                                    Key=f"logs/{job_id}.log",
+                                    Body=current_log.encode("utf-8"),
+                                    ContentType="text/plain"
+                                )
+                        except Exception:
+                            pass
+                    stop_event.wait(3.0)
+            
+            log_thread = threading.Thread(target=upload_log_worker, daemon=True)
+            log_thread.start()
+
+            try:
+                with open(danser_log_path, "w") as danser_log:
+                    proc = subprocess.run(
+                        cmd, env=env,
+                        stdout=danser_log, stderr=subprocess.STDOUT,
+                        timeout=600
+                    )
+            finally:
+                stop_event.set()
+                log_thread.join(timeout=2.0)
             
             # Read danser output
             with open(danser_log_path, "r") as f:
