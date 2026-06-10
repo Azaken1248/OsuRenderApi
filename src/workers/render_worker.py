@@ -65,6 +65,7 @@ async def _process_render_job(job_id: str):
                     file_path=osr_path
                 )
 
+                replay = None
                 try:
                     replay = Replay.from_path(osr_path)
                     h = replay.beatmap_hash
@@ -72,7 +73,7 @@ async def _process_render_job(job_id: str):
                     h = "unknown"
 
                 async with httpx.AsyncClient() as client:
-                    if settings.osu_api_key and h != "unknown":
+                    if settings.osu_api_key and h != "unknown" and replay is not None:
                         beatmap_data = await fetch_beatmap_with_backoff(client, h)
                         if not beatmap_data:
                             raise Exception("Beatmap not found on osu! API.")
@@ -80,6 +81,21 @@ async def _process_render_job(job_id: str):
                         b_id = beatmap_data["beatmap_id"]
                         job.beatmap_id = int(b_id)
                         job.map_title = f"{beatmap_data.get('artist')} - {beatmap_data.get('title')}"
+                        
+                        # Store stats
+                        c_dict = dict(job.config)
+                        c_dict["replay_stats"] = {
+                            "300s": replay.count_300,
+                            "100s": replay.count_100,
+                            "50s": replay.count_50,
+                            "misses": replay.count_miss,
+                            "max_combo": replay.max_combo,
+                            "star_rating": beatmap_data.get("difficultyrating"),
+                            # Not trivial to get PP precisely without a heavy library, but we can set 0
+                            "pp": 0 
+                        }
+                        job.config = c_dict
+                        
                         await db.commit()
                     else:
                         raise Exception(f"Beatmap with hash {h} not found on osu! API (or API key missing). Unranked/unavailable maps cannot be rendered yet.")
@@ -95,10 +111,40 @@ async def _process_render_job(job_id: str):
                         "Width": 1920 if job.config.get("resolution") == "1080p" else 3840, 
                         "Height": 1080 if job.config.get("resolution") == "1080p" else 2160
                     },
+                    "Gameplay": {
+                        "HitErrorMeter": {"Show": job.config.get("hit_error_meter", True)},
+                        "KeyOverlay": {"Show": job.config.get("key_overlay", True)}
+                    },
+                    "Skin": {
+                        "CurrentSkin": job.config.get("skin", "Default"),
+                        "UseColorsFromSkin": True,
+                        "UseBeatmapColors": False,
+                        "Cursor": {
+                            "UseSkinCursor": True,
+                            "Scale": 0.6
+                        }
+                    },
+                    "Objects": {
+                        "Colors": {"UseSkinColors": True, "UseBeatmapColors": False},
+                        "Sliders": {
+                            "ForceSliderBallTexture": True,
+                            "Snaking": {
+                                "In": job.config.get("snaking_in", True),
+                                "Out": job.config.get("snaking_out", True)
+                            }
+                        }
+                    },
                     "Playfield": {
                         "Background": {
-                            "Dim": {"Normal": job.config.get("bg_dim", 0.95)}
+                            "Dim": {"Normal": job.config.get("bg_dim", 0.95)},
+                            "LoadStoryboards": job.config.get("storyboard", True),
+                            "LoadVideos": job.config.get("video", False)
                         }
+                    },
+                    "Cursor": {"UseSkinCursor": True},
+                    "Recording": {
+                        "MotionBlur": {"Enabled": job.config.get("motion_blur", True)},
+                        "Encoder": "libx264"
                     }
                 })
 

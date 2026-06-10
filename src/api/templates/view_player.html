@@ -196,13 +196,46 @@
             </div>
         </div>
 
+        <div id="stats-section" style="display: none; margin-bottom: 2rem; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem;">
+            <h3 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Replay Statistics</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 1rem; text-align: center;">
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">300s</div>
+                    <div id="stat-300" style="font-size: 1.5rem; font-weight: 700; color: #60a5fa;">-</div>
+                </div>
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">100s</div>
+                    <div id="stat-100" style="font-size: 1.5rem; font-weight: 700; color: #4ade80;">-</div>
+                </div>
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">50s</div>
+                    <div id="stat-50" style="font-size: 1.5rem; font-weight: 700; color: #fbbf24;">-</div>
+                </div>
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Misses</div>
+                    <div id="stat-miss" style="font-size: 1.5rem; font-weight: 700; color: #f87171;">-</div>
+                </div>
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Max Combo</div>
+                    <div id="stat-combo" style="font-size: 1.5rem; font-weight: 700; color: #c084fc;">-</div>
+                </div>
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Star Rating</div>
+                    <div id="stat-stars" style="font-size: 1.5rem; font-weight: 700; color: #facc15;">-</div>
+                </div>
+            </div>
+        </div>
+
         <div id="progress-section">
             <div class="progress-container">
                 <div id="progress-bar" class="progress-bar"></div>
             </div>
             <div id="progress-text" class="progress-text">Waiting for GPU...</div>
             
-            <h3 style="margin-top: 2rem; margin-bottom: 1rem; color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Real-time Logs</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; margin-bottom: 1rem;">
+                <h3 style="color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; margin: 0;">Real-time Logs</h3>
+                <button onclick="if(currentLogsUrl) { logsSeen=0; document.getElementById('logs').innerHTML=''; fetchLogs(currentLogsUrl); }" style="background: none; border: 1px solid var(--border); color: var(--text); padding: 0.25rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.75rem;">Refresh Logs</button>
+            </div>
             <div id="logs" class="logs-container"></div>
         </div>
     </div>
@@ -210,6 +243,7 @@
     <script>
     let durationSec = 0;
     let logsSeen = 0;
+    let currentLogsUrl = null;
 
     function formatJson(str) {
         try {
@@ -267,8 +301,16 @@
         if (timeProgMatch && durationSec > 0) {
             let cur = parseInt(timeProgMatch[1])*3600 + parseInt(timeProgMatch[2])*60 + parseFloat(timeProgMatch[3]);
             let pct = Math.min(100, Math.max(0, (cur / durationSec) * 100));
+            
+            let dH = Math.floor(durationSec / 3600).toString().padStart(2, '0');
+            let dM = Math.floor((durationSec % 3600) / 60).toString().padStart(2, '0');
+            let dS = Math.floor(durationSec % 60).toString().padStart(2, '0');
+            let cH = timeProgMatch[1];
+            let cM = timeProgMatch[2];
+            let cS = timeProgMatch[3].substring(0, 2);
+            
             document.getElementById('progress-bar').style.width = pct.toFixed(1) + '%';
-            document.getElementById('progress-text').innerText = `Rendering Video... ${pct.toFixed(1)}%`;
+            document.getElementById('progress-text').innerText = `Phase: Rendering Video - ${pct.toFixed(1)}% (${cH}:${cM}:${cS} / ${dH}:${dM}:${dS})`;
         }
 
         // Apply colors
@@ -296,61 +338,96 @@
                 const newText = text.substring(logsSeen);
                 logsSeen = text.length;
                 
-                const lines = newText.split('\n');
+                // Split on both \n and \r because ffmpeg uses \r to overwrite progress
+                const lines = newText.split(/[\r\n]+/);
                 let logsHtml = '';
                 for (let line of lines) {
+                    if (!line.trim()) continue;
+                    
+                    // Update phases based on known log lines
+                    if (line.includes("Setting up osu! directory")) {
+                        document.getElementById('progress-text').innerText = "Phase: Initializing Environment";
+                    } else if (line.includes("Downloading replay")) {
+                        document.getElementById('progress-text').innerText = "Phase: Downloading Replay";
+                    } else if (line.includes("Downloading beatmap set")) {
+                        document.getElementById('progress-text').innerText = "Phase: Downloading Beatmap";
+                    } else if (line.includes("Downloading skin")) {
+                        document.getElementById('progress-text').innerText = "Phase: Downloading Custom Skin";
+                    } else if (line.includes("Starting danser render")) {
+                        document.getElementById('progress-text').innerText = "Phase: Danser Engine Started";
+                    } else if (line.includes("Uploading video")) {
+                        document.getElementById('progress-text').innerText = "Phase: Uploading Result to Storage";
+                        document.getElementById('progress-bar').style.width = '100%';
+                    }
+                    
                     logsHtml += parseLogLine(line);
                 }
                 
-                const logEl = document.getElementById('logs');
-                logEl.innerHTML += logsHtml;
-                logEl.scrollTop = logEl.scrollHeight;
+                if (logsHtml) {
+                    const logsContainer = document.getElementById('logs');
+                    logsContainer.innerHTML += logsHtml;
+                    logsContainer.scrollTop = logsContainer.scrollHeight;
+                }
             }
-        } catch(e) {}
+        } catch (e) {
+            console.error(e);
+        }
     }
 
     async function check() {
-        let r = await fetch('/v1/jobs/{{ job_id }}');
-        if (!r.ok) {
-            setTimeout(check, 3000);
-            return;
-        }
-        let d = await r.json();
-        
-        const badge = document.getElementById('status-badge');
-        badge.innerText = d.status;
-        badge.className = 'status-badge';
-        if (d.status === 'failed') badge.classList.add('status-failed');
-        if (d.status === 'completed') badge.classList.add('status-completed');
-        
-        if (d.status === 'queued') {
-            document.getElementById('progress-text').innerText = 'Waiting for worker...';
-        } else if (d.status === 'rendering') {
-            if (document.getElementById('progress-text').innerText === 'Waiting for GPU...') {
-                document.getElementById('progress-text').innerText = 'Starting render process...';
+        try {
+            let r = await fetch('/v1/jobs/{{ job_id }}');
+            if (!r.ok) {
+                setTimeout(check, 3000);
+                return;
             }
-        }
-        
-        if (d.artifacts && d.artifacts.logs_url) {
-            await fetchLogs(d.artifacts.logs_url);
-        }
-        
-        if (d.status === 'completed') {
-            document.getElementById('progress-section').style.display = 'none';
-            document.getElementById('video-section').style.display = 'block';
+            let d = await r.json();
             
-            let v = document.getElementById('v');
-            if (!v.getAttribute('src') && v.innerHTML.trim() === '') {
-                v.setAttribute('src', d.artifacts.video_url);
-                document.getElementById('d').href = d.artifacts.video_url;
+            const badge = document.getElementById('status-badge');
+            badge.innerText = d.status;
+            badge.className = 'status-badge';
+            if (d.status === 'failed') badge.classList.add('status-failed');
+            if (d.status === 'completed') badge.classList.add('status-completed');
+            else badge.classList.add('status-running');
+            
+            if (d.config && d.config.replay_stats) {
+                const stats = d.config.replay_stats;
+                document.getElementById('stats-section').style.display = 'block';
+                document.getElementById('stat-300').innerText = stats['300s'] !== undefined ? stats['300s'] : '-';
+                document.getElementById('stat-100').innerText = stats['100s'] !== undefined ? stats['100s'] : '-';
+                document.getElementById('stat-50').innerText = stats['50s'] !== undefined ? stats['50s'] : '-';
+                document.getElementById('stat-miss').innerText = stats['misses'] !== undefined ? stats['misses'] : '-';
+                document.getElementById('stat-combo').innerText = stats['max_combo'] !== undefined ? stats['max_combo'] + 'x' : '-';
+                document.getElementById('stat-stars').innerText = stats['star_rating'] ? parseFloat(stats['star_rating']).toFixed(2) + '★' : '-';
             }
-        } else if (d.status === 'failed') {
-            document.getElementById('progress-bar').style.width = '100%';
-            document.getElementById('progress-bar').style.background = '#ef4444';
-            document.getElementById('progress-text').innerText = 'Render failed.';
-            document.getElementById('progress-text').style.color = '#ef4444';
-        } else {
-            setTimeout(check, 2000);
+
+            if (d.artifacts && d.artifacts.logs_url) {
+                currentLogsUrl = d.artifacts.logs_url;
+                await fetchLogs(d.artifacts.logs_url);
+            }
+            
+            if (d.status === 'completed') {
+                document.getElementById('progress-section').style.display = 'none';
+                document.getElementById('video-section').style.display = 'block';
+                let v = document.getElementById('v');
+                if (!v.getAttribute('src') && v.innerHTML.trim() === '') {
+                    v.setAttribute('src', d.artifacts.video_url);
+                    document.getElementById('d').href = d.artifacts.video_url;
+                }
+                return;
+            } else if (d.status === 'failed') {
+                document.getElementById('progress-bar').style.width = '100%';
+                document.getElementById('progress-bar').style.background = '#ef4444';
+                document.getElementById('progress-text').innerText = 'Render failed.';
+                document.getElementById('progress-text').style.color = '#ef4444';
+                return;
+            } else if (d.status === 'queued') {
+                document.getElementById('progress-text').innerText = 'Waiting for worker...';
+            }
+            
+            setTimeout(check, 3000);
+        } catch (e) {
+            setTimeout(check, 3000);
         }
     }
     
