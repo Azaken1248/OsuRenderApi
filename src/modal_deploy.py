@@ -138,7 +138,7 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
                 f"-replay={osr_path}",
                 f"-skin={skin}",
                 f"-sPatch={patch}",
-                f"-out={tmpdir}/{target_name}",
+                f"-out={target_name}",
                 "-record"
             ]
             log(f"Command: {' '.join(cmd)}")
