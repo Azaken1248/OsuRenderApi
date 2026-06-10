@@ -13,7 +13,6 @@ from celery import shared_task
 from src.core.celery_app import celery_app
 from src.core.storage import storage_client
 from src.core.config import get_settings
-from src.db.session import async_session_factory
 from src.db.models import Job, JobStatus
 
 settings = get_settings()
@@ -107,10 +106,11 @@ async def _process_render_job(job_id: str):
                 })
 
                 if os.environ.get("USE_MODAL_GPU") == "1":
-                    from src.modal_deploy import gpu_render_task
+                    import modal
                     
-                    import typing
-                    result_raw = gpu_render_task.remote(  # type: ignore
+                    gpu_render_fn = modal.Function.lookup("osurender-gpu-worker", "gpu_render_task")  # type: ignore[attr-defined]
+                    
+                    result_dict = gpu_render_fn.remote(
                         job_id=job_id,
                         set_id=set_id,
                         replay_key=job.replay_storage_key,
@@ -119,13 +119,15 @@ async def _process_render_job(job_id: str):
                         target_name=target_name,
                         bucket_name=storage_client.bucket
                     )
-                    result_dict = typing.cast(dict, result_raw)
+                    
+                    if not isinstance(result_dict, dict):
+                        result_dict = {"success": False, "error": "Modal returned unexpected result type"}
                     
                     if not result_dict.get("success"):
                         raise Exception(result_dict.get("error", "Modal GPU render failed"))
                         
-                    video_key = result_dict.get("video_key")
-                    thumb_key = result_dict.get("thumb_key")
+                    video_key = str(result_dict.get("video_key", ""))
+                    thumb_key = str(result_dict.get("thumb_key", ""))
                     
                 else:
                     osz_path = os.path.join(SONGS_DIR, f"{set_id}.osz")
