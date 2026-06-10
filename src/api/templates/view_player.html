@@ -6,118 +6,356 @@
     <title>OsuRender: {{ map_title }}</title>
     <meta name="description" content="Watch this osu! replay render powered by OsuRender Cloud API.">
     <meta name="theme-color" content="#ff66aa">
-    
-    <meta property="og:title" content="OsuRender Job: {{ map_title }}">
-    <meta property="og:description" content="Click to watch this osu! replay render.">
-    <meta property="og:type" content="video.other">
-    <meta property="og:url" content="{{ base_url }}/view/{{ job_id }}">
-    <meta property="og:image" content="{{ base_url }}{{ thumb_url }}">
-    <meta property="og:video" content="{{ base_url }}{{ video_url }}">
-    <meta property="og:video:secure_url" content="{{ base_url }}{{ video_url }}">
-    <meta property="og:video:type" content="video/mp4">
-    <meta property="og:video:width" content="1920">
-    <meta property="og:video:height" content="1080">
-
-    <meta name="twitter:card" content="player">
-    <meta name="twitter:title" content="OsuRender: {{ map_title }}">
-    <meta name="twitter:description" content="Watch this osu! replay render.">
-    <meta name="twitter:image" content="{{ base_url }}{{ thumb_url }}">
-    <meta name="twitter:player" content="{{ base_url }}/view/{{ job_id }}">
-    <meta name="twitter:player:width" content="1920">
-    <meta name="twitter:player:height" content="1080">
-    <meta name="twitter:player:stream" content="{{ base_url }}{{ video_url }}">
-    <meta name="twitter:player:stream:content_type" content="video/mp4">
-    
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
+        
+        :root {
+            --bg: #09090b;
+            --surface: #18181b;
+            --surface-hover: #27272a;
+            --primary: #ec4899;
+            --primary-hover: #be185d;
+            --text: #f4f4f5;
+            --text-muted: #a1a1aa;
+            --border: #27272a;
+        }
+
         body {
-            background-color: #111111;
-            color: #eeeeee;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
             margin: 0;
             padding: 2rem;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
         }
+
         .container {
-            max-width: 1000px;
+            max-width: 1200px;
             width: 100%;
-            background-color: #1a1a1a;
-            border-radius: 12px;
-            padding: 2rem;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            text-align: center;
-        }
-        h1 {
-            color: #ff66aa;
-            margin-top: 0;
-            margin-bottom: 0.5rem;
-        }
-        .subtitle {
-            color: #888888;
-            font-size: 1.1rem;
-            margin-bottom: 1.5rem;
-        }
-        #status-badge {
-            display: inline-block;
-            background-color: #222222;
-            color: #eeeeee;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            font-weight: 600;
+            background-color: var(--surface);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            padding: 2.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
             margin-bottom: 2rem;
         }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .title-group {
+            flex: 1;
+        }
+
+        h1 {
+            color: var(--primary);
+            margin: 0 0 0.5rem 0;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1rem;
+            font-family: 'Fira Code', monospace;
+        }
+
+        .status-badge {
+            background-color: rgba(236, 72, 153, 0.1);
+            color: var(--primary);
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            border: 1px solid rgba(236, 72, 153, 0.2);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .status-failed {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border-color: rgba(239, 68, 68, 0.2);
+        }
+
+        .status-completed {
+            background-color: rgba(34, 197, 94, 0.1);
+            color: #22c55e;
+            border-color: rgba(34, 197, 94, 0.2);
+        }
+
+        .progress-container {
+            width: 100%;
+            background-color: var(--bg);
+            border-radius: 9999px;
+            height: 12px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border);
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #ec4899, #8b5cf6);
+            width: 0%;
+            transition: width 0.3s ease;
+            position: relative;
+        }
+        
+        .progress-text {
+            text-align: right;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+            font-family: 'Fira Code', monospace;
+        }
+
+        .logs-container {
+            background-color: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.875rem;
+            line-height: 1.6;
+            overflow-y: auto;
+            max-height: 500px;
+            scroll-behavior: smooth;
+        }
+
+        .log-line { margin: 0; padding: 0.1rem 0; word-wrap: break-word; }
+        .log-time { color: #a1a1aa; margin-right: 0.5rem; }
+        .log-info { color: #60a5fa; }
+        .log-warn { color: #fbbf24; }
+        .log-error { color: #f87171; }
+        .log-success { color: #34d399; }
+        .log-json-key { color: #c084fc; }
+        .log-json-string { color: #34d399; }
+        .log-json-number { color: #fbbf24; }
+        .log-json-boolean { color: #60a5fa; }
+
         video {
             width: 100%;
-            border-radius: 8px;
-            background-color: #000000;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+            border-radius: 12px;
+            background-color: #000;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5);
             margin-bottom: 1.5rem;
+            aspect-ratio: 16/9;
         }
+
         .btn {
-            background-color: #ff66aa;
+            background-color: var(--primary);
             color: white;
-            padding: 0.75rem 2rem;
+            padding: 0.875rem 2rem;
             text-decoration: none;
-            border-radius: 6px;
-            font-weight: bold;
-            transition: background-color 0.2s;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            cursor: pointer;
         }
+
         .btn:hover {
-            background-color: #ff4499;
+            background-color: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 1.5rem; }
+            h1 { font-size: 1.5rem; }
+            .header { flex-direction: column; }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>{{ map_title }}</h1>
-        <div class="subtitle">Job ID: {{ job_id }}</div>
-        <div id="status-badge">Status: {{ status }} ({{ progress }}%)</div>
-        
-        <video id="v" controls poster="{{ thumb_url }}" {% if status != 'completed' %}style="display: none;"{% endif %}>{{ video_src_html | safe }}</video><br>
-        <a id="d" href="{{ video_url }}" class="btn" download {% if status != 'completed' %}style="display: none;"{% endif %}>Download Video</a>
+        <div class="header">
+            <div class="title-group">
+                <h1>{{ map_title }}</h1>
+                <div class="subtitle">Job ID: {{ job_id }}</div>
+            </div>
+            <div id="status-badge" class="status-badge">queued</div>
+        </div>
+
+        <div id="video-section" style="display: none;">
+            <video id="v" controls poster="{{ thumb_url }}">{{ video_src_html | safe }}</video>
+            <div style="text-align: center;">
+                <a id="d" href="{{ video_url }}" class="btn">Download Render</a>
+            </div>
+        </div>
+
+        <div id="progress-section">
+            <div class="progress-container">
+                <div id="progress-bar" class="progress-bar"></div>
+            </div>
+            <div id="progress-text" class="progress-text">Waiting for GPU...</div>
+            
+            <h3 style="margin-top: 2rem; margin-bottom: 1rem; color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Real-time Logs</h3>
+            <div id="logs" class="logs-container"></div>
+        </div>
     </div>
     
     <script>
+    let durationSec = 0;
+    let logsSeen = 0;
+
+    function formatJson(str) {
+        try {
+            const obj = JSON.parse(str);
+            const formatted = JSON.stringify(obj, null, 2);
+            return formatted.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                let cls = 'log-json-number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'log-json-key';
+                    } else {
+                        cls = 'log-json-string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'log-json-boolean';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            });
+        } catch (e) {
+            return null; // Not valid JSON
+        }
+    }
+
+    function parseLogLine(line) {
+        if (!line.trim()) return '';
+        
+        let html = '<div class="log-line">';
+        
+        // Match [HH:MM:SS] timestamp
+        const timeMatch = line.match(/^(\[\d{2}:\d{2}:\d{2}\])(.*)/);
+        let content = line;
+        
+        if (timeMatch) {
+            html += `<span class="log-time">${timeMatch[1]}</span>`;
+            content = timeMatch[2];
+        }
+
+        // Try parsing JSON block if it looks like one
+        if (content.trim().startsWith('{') && content.trim().endsWith('}')) {
+            const jsonHtml = formatJson(content);
+            if (jsonHtml) {
+                html += `<pre style="margin: 0;">${jsonHtml}</pre>`;
+                html += '</div>';
+                return html;
+            }
+        }
+
+        // Check for ffmpeg progress
+        const durationMatch = content.match(/Duration: (\d{2}):(\d{2}):(\d{2}\.\d{2})/);
+        if (durationMatch) {
+            durationSec = parseInt(durationMatch[1])*3600 + parseInt(durationMatch[2])*60 + parseFloat(durationMatch[3]);
+        }
+
+        const timeProgMatch = content.match(/time=(\d{2}):(\d{2}):(\d{2}\.\d{2})/);
+        if (timeProgMatch && durationSec > 0) {
+            let cur = parseInt(timeProgMatch[1])*3600 + parseInt(timeProgMatch[2])*60 + parseFloat(timeProgMatch[3]);
+            let pct = Math.min(100, Math.max(0, (cur / durationSec) * 100));
+            document.getElementById('progress-bar').style.width = pct.toFixed(1) + '%';
+            document.getElementById('progress-text').innerText = `Rendering Video... ${pct.toFixed(1)}%`;
+        }
+
+        // Apply colors
+        if (content.includes('Beatmap not found') || content.includes('failed') || content.includes('Error')) {
+            html += `<span class="log-error">${content}</span>`;
+        } else if (content.includes('Finished!') || content.includes('success')) {
+            html += `<span class="log-success">${content}</span>`;
+        } else if (content.includes('Warning')) {
+            html += `<span class="log-warn">${content}</span>`;
+        } else {
+            html += content;
+        }
+
+        html += '</div>';
+        return html;
+    }
+
+    async function fetchLogs(logsUrl) {
+        try {
+            const r = await fetch(logsUrl + '?t=' + Date.now());
+            if (!r.ok) return;
+            const text = await r.text();
+            
+            if (text.length > logsSeen) {
+                const newText = text.substring(logsSeen);
+                logsSeen = text.length;
+                
+                const lines = newText.split('\n');
+                let logsHtml = '';
+                for (let line of lines) {
+                    logsHtml += parseLogLine(line);
+                }
+                
+                const logEl = document.getElementById('logs');
+                logEl.innerHTML += logsHtml;
+                logEl.scrollTop = logEl.scrollHeight;
+            }
+        } catch(e) {}
+    }
+
     async function check() {
         let r = await fetch('/v1/jobs/{{ job_id }}');
-        if (!r.ok) return;
+        if (!r.ok) {
+            setTimeout(check, 3000);
+            return;
+        }
         let d = await r.json();
-        document.getElementById('status-badge').innerText = 'Status: ' + d.status + ' (' + d.progress + '%)';
+        
+        const badge = document.getElementById('status-badge');
+        badge.innerText = d.status;
+        badge.className = 'status-badge';
+        if (d.status === 'failed') badge.classList.add('status-failed');
+        if (d.status === 'completed') badge.classList.add('status-completed');
+        
+        if (d.status === 'queued') {
+            document.getElementById('progress-text').innerText = 'Waiting for worker...';
+        } else if (d.status === 'rendering') {
+            if (document.getElementById('progress-text').innerText === 'Waiting for GPU...') {
+                document.getElementById('progress-text').innerText = 'Starting render process...';
+            }
+        }
+        
+        if (d.artifacts && d.artifacts.logs_url) {
+            await fetchLogs(d.artifacts.logs_url);
+        }
         
         if (d.status === 'completed') {
+            document.getElementById('progress-section').style.display = 'none';
+            document.getElementById('video-section').style.display = 'block';
+            
             let v = document.getElementById('v');
             if (!v.getAttribute('src') && v.innerHTML.trim() === '') {
                 v.setAttribute('src', d.artifacts.video_url);
                 document.getElementById('d').href = d.artifacts.video_url;
             }
-            v.style.display = 'inline-block';
-            document.getElementById('d').style.display = 'inline-block';
-        } else if (d.status !== 'failed') {
-            setTimeout(check, 3000);
+        } else if (d.status === 'failed') {
+            document.getElementById('progress-bar').style.width = '100%';
+            document.getElementById('progress-bar').style.background = '#ef4444';
+            document.getElementById('progress-text').innerText = 'Render failed.';
+            document.getElementById('progress-text').style.color = '#ef4444';
+        } else {
+            setTimeout(check, 2000);
         }
     }
-    if ("{{ status }}" !== "completed") check();
+    
+    // Initial load
+    check();
     </script>
 </body>
 </html>
