@@ -47,10 +47,17 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
     access_key = os.environ.get("S3_ACCESS_KEY")
     secret_key = os.environ.get("S3_SECRET_KEY")
 
-    log_lines = [f"=== GPU Render Task Started: {time.ctime()} ===\n"]
+    # Create a persistent log file path early
+    shared_log_path = f"/tmp/osurender_{job_id}.log"
+    
+    with open(shared_log_path, "w") as f:
+        f.write(f"=== GPU Render Task Started: {time.ctime()} ===\n")
 
     def log(msg: str):
-        log_lines.append(f"[{time.strftime('%H:%M:%S')}] {msg}\n")
+        line = f"[{time.strftime('%H:%M:%S')}] {msg}\n"
+        print(line, end="")
+        with open(shared_log_path, "a") as f:
+            f.write(line)
 
     s3 = None
     try:
@@ -59,7 +66,7 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
             endpoint_url=endpoint,
             aws_access_key_id=access_key,
             aws_secret_access_key=secret_key,
-            config=Config(signature_version="s3v4")
+            config=Config(signature_version="s3v4", s3={'addressing_style': 'path'})
         )
 
         # --- Setup osu! directory structure (exactly like legacy) ---
@@ -115,7 +122,7 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
                             log(f"  Error: {e}")
                             continue
                 if not downloaded:
-                    return _upload_log_and_fail(s3, bucket_name, job_id, log_lines,
+                    return _upload_log_and_fail(s3, bucket_name, job_id, shared_log_path,
                                                 "Failed to download beatmap from all mirrors.")
             else:
                 log(f"Beatmap already cached: {osz_path}")
@@ -165,24 +172,15 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
             ]
             log(f"Command: {' '.join(cmd)}")
 
-            danser_log_path = os.path.join(tmpdir, "danser.log")
-            
             import threading
             stop_event = threading.Event()
             
             def upload_log_worker():
                 while not stop_event.is_set():
-                    if os.path.exists(danser_log_path):
+                    if os.path.exists(shared_log_path):
                         try:
-                            with open(danser_log_path, "r") as f:
-                                current_log = f.read()
-                            if current_log:
-                                s3.put_object(
-                                    Bucket=bucket_name,
-                                    Key=f"logs/{job_id}.log",
-                                    Body=current_log.encode("utf-8"),
-                                    ContentType="text/plain"
-                                )
+                            s3.upload_file(shared_log_path, bucket_name, f"logs/{job_id}.log",
+                                           ExtraArgs={"ContentType": "text/plain"})
                         except Exception:
                             pass
                     stop_event.wait(3.0)
@@ -191,7 +189,7 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
             log_thread.start()
 
             try:
-                with open(danser_log_path, "w") as danser_log:
+                with open(shared_log_path, "a") as danser_log:
                     proc = subprocess.run(
                         cmd, env=env,
                         stdout=danser_log, stderr=subprocess.STDOUT,
@@ -201,18 +199,18 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
                 stop_event.set()
                 log_thread.join(timeout=2.0)
             
-            # Read danser output
-            with open(danser_log_path, "r") as f:
+            # Read danser output to check for errors
+            with open(shared_log_path, "r") as f:
                 danser_output = f.read()
             log(f"Danser exit code: {proc.returncode}")
             log(f"Danser output ({len(danser_output)} chars):\n{danser_output[-2000:]}")
 
             if "Beatmap not found" in danser_output:
-                return _upload_log_and_fail(s3, bucket_name, job_id, log_lines,
+                return _upload_log_and_fail(s3, bucket_name, job_id, shared_log_path,
                                             "Beatmap not found! The replay requires a beatmap that is unranked or not available on the osu! API.")
 
             if proc.returncode != 0:
-                return _upload_log_and_fail(s3, bucket_name, job_id, log_lines,
+                return _upload_log_and_fail(s3, bucket_name, job_id, shared_log_path,
                                             f"Danser failed with exit code {proc.returncode}")
 
             # --- 4. Find video output ---
@@ -244,7 +242,7 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
                         pass
 
             if not video_path:
-                return _upload_log_and_fail(s3, bucket_name, job_id, log_lines,
+                return _upload_log_and_fail(s3, bucket_name, job_id, shared_log_path,
                                             "Output video not found in any expected location.")
 
             log(f"Found video: {video_path} ({os.path.getsize(video_path)} bytes)")
@@ -273,13 +271,9 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
                                ExtraArgs={"ContentType": "image/jpeg"})
 
             # Upload full log
-            full_log = "".join(log_lines)
-            import io
-            s3.upload_fileobj(
-                io.BytesIO(full_log.encode()),
-                bucket_name, log_key,
-                ExtraArgs={"ContentType": "text/plain"}
-            )
+            if os.path.exists(shared_log_path):
+                s3.upload_file(shared_log_path, bucket_name, log_key,
+                               ExtraArgs={"ContentType": "text/plain"})
 
             log("Done!")
             return {
@@ -291,25 +285,24 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
 
     except Exception as e:
         try:
-            _upload_log_and_fail(s3, bucket_name, job_id, log_lines, str(e))
+            _upload_log_and_fail(s3, bucket_name, job_id, shared_log_path, str(e))
         except:
             pass
         return {"success": False, "error": str(e)}
 
 
-def _upload_log_and_fail(s3, bucket_name: str, job_id: str, log_lines: list, error: str) -> dict:
+def _upload_log_and_fail(s3, bucket_name: str, job_id: str, log_path: str, error: str) -> dict:
     """Upload the log to R2 even on failure, so we can debug."""
-    import io
-    log_lines.append(f"FATAL ERROR: {error}\n")
+    try:
+        with open(log_path, "a") as f:
+            f.write(f"\nFATAL ERROR: {error}\n")
+    except:
+        pass
+        
     log_key = f"logs/{job_id}.log"
     try:
-        if s3 is not None:
-            full_log = "".join(log_lines)
-            s3.upload_fileobj(
-                io.BytesIO(full_log.encode()),
-                bucket_name, log_key,
-                ExtraArgs={"ContentType": "text/plain"}
-            )
+        if s3 is not None and os.path.exists(log_path):
+            s3.upload_file(log_path, bucket_name, log_key, ExtraArgs={"ContentType": "text/plain"})
     except:
         pass
     return {"success": False, "error": error, "log_key": log_key}
