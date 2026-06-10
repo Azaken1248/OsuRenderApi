@@ -136,7 +136,7 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
                 f"-replay={osr_path}",
                 f"-skin={skin}",
                 f"-sPatch={patch}",
-                f"-out={target_name}",
+                f"-out={tmpdir}/{target_name}",
                 "-record"
             ]
             log(f"Command: {' '.join(cmd)}")
@@ -154,6 +154,10 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
                 danser_output = f.read()
             log(f"Danser exit code: {proc.returncode}")
             log(f"Danser output ({len(danser_output)} chars):\n{danser_output[-2000:]}")
+
+            if "Beatmap not found" in danser_output:
+                return _upload_log_and_fail(s3, bucket_name, job_id, log_lines,
+                                            "Beatmap not found! The replay requires a beatmap that is unranked or not available on the osu! API.")
 
             if proc.returncode != 0:
                 return _upload_log_and_fail(s3, bucket_name, job_id, log_lines,

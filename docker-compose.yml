@@ -86,6 +86,7 @@ services:
       - USE_MODAL_GPU=${USE_MODAL_GPU:-0}
       - MODAL_TOKEN_ID=${MODAL_TOKEN_ID}
       - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET}
+      - OSU_API_KEY=${OSU_API_KEY}
     depends_on:
       postgres:
         condition: service_healthy
@@ -111,6 +112,7 @@ services:
       - USE_MODAL_GPU=${USE_MODAL_GPU:-0}
       - MODAL_TOKEN_ID=${MODAL_TOKEN_ID}
       - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET}
+      - OSU_API_KEY=${OSU_API_KEY}
     depends_on:
       postgres:
         condition: service_healthy

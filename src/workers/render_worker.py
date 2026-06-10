@@ -82,11 +82,8 @@ async def _process_render_job(job_id: str):
                         job.map_title = f"{beatmap_data.get('artist')} - {beatmap_data.get('title')}"
                         await db.commit()
                     else:
-                        set_id = "1"
-                        b_id = "1"
-                        job.beatmap_id = 1
-                        job.map_title = "Unknown Map (Mocked or Missing API Key)"
-                        await db.commit()
+                        raise Exception(f"Beatmap with hash {h} not found on osu! API (or API key missing). Unranked/unavailable maps cannot be rendered yet.")
+
 
                 job.status = JobStatus.RENDERING
                 await db.commit()
