@@ -5,7 +5,7 @@ image = (
     modal.Image.debian_slim()
     .apt_install(
         "wget", "unzip", "ffmpeg", "xvfb", "libnss3", "libgl1",
-        "libgl1-mesa-dri", "libgbm1", "libgtk-3-0", "libasound2t64",
+        "libgl1-mesa-dri", "libgbm1", "libgtk-3-0", "libasound2",
         "libxrender1", "libxtst6", "libxi6", "libxrandr2", "libxcursor1", "libxinerama1"
     )
     .pip_install("boto3", "httpx")
