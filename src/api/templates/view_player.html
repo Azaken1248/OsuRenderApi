@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,9 +8,10 @@
     <meta name="description" content="Watch this osu! replay render powered by OsuRender Cloud API.">
     <meta name="theme-color" content="#ff66aa">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
-        
+
         :root {
             --bg: #09090b;
             --surface: #18181b;
@@ -40,7 +42,7 @@
             border-radius: 16px;
             border: 1px solid var(--border);
             padding: 2.5rem;
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
             margin-bottom: 2rem;
         }
 
@@ -106,12 +108,12 @@
 
         .progress-bar {
             height: 100%;
-            background: linear-gradient(90deg, #ec4899, #8b5cf6);
+            background: var(--primary);
             width: 0%;
             transition: width 0.3s ease;
             position: relative;
         }
-        
+
         .progress-text {
             text-align: right;
             font-size: 0.875rem;
@@ -133,22 +135,54 @@
             scroll-behavior: smooth;
         }
 
-        .log-line { margin: 0; padding: 0.1rem 0; word-wrap: break-word; }
-        .log-time { color: #a1a1aa; margin-right: 0.5rem; }
-        .log-info { color: #60a5fa; }
-        .log-warn { color: #fbbf24; }
-        .log-error { color: #f87171; }
-        .log-success { color: #34d399; }
-        .log-json-key { color: #c084fc; }
-        .log-json-string { color: #34d399; }
-        .log-json-number { color: #fbbf24; }
-        .log-json-boolean { color: #60a5fa; }
+        .log-line {
+            margin: 0;
+            padding: 0.1rem 0;
+            word-wrap: break-word;
+        }
+
+        .log-time {
+            color: #a1a1aa;
+            margin-right: 0.5rem;
+        }
+
+        .log-info {
+            color: #60a5fa;
+        }
+
+        .log-warn {
+            color: #fbbf24;
+        }
+
+        .log-error {
+            color: #f87171;
+        }
+
+        .log-success {
+            color: #34d399;
+        }
+
+        .log-json-key {
+            color: #c084fc;
+        }
+
+        .log-json-string {
+            color: #34d399;
+        }
+
+        .log-json-number {
+            color: #fbbf24;
+        }
+
+        .log-json-boolean {
+            color: #60a5fa;
+        }
 
         video {
             width: 100%;
             border-radius: 12px;
             background-color: #000;
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
             margin-bottom: 1.5rem;
             aspect-ratio: 16/9;
         }
@@ -174,12 +208,21 @@
         }
 
         @media (max-width: 768px) {
-            .container { padding: 1.5rem; }
-            h1 { font-size: 1.5rem; }
-            .header { flex-direction: column; }
+            .container {
+                padding: 1.5rem;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .header {
+                flex-direction: column;
+            }
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="header">
@@ -193,40 +236,51 @@
         <div id="video-section" style="display: none; margin-bottom: 2.5rem;">
             <video id="v" controls poster="{{ thumb_url }}">{{ video_src_html | safe }}</video>
             <div style="text-align: center;">
-                <a id="d" href="{{ video_url }}" class="btn"><i class="fas fa-download" style="margin-right: 8px;"></i> Download Render</a>
+                <a id="d" href="{{ video_url }}" class="btn"><i class="fas fa-download" style="margin-right: 8px;"></i>
+                    Download Render</a>
             </div>
         </div>
 
-        <div id="stats-section" style="display: none; margin-bottom: 2rem; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem;">
-            <h3 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Replay Statistics</h3>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 1rem; text-align: center;">
-                <div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">300s</div>
-                    <div id="stat-300" style="font-size: 1.5rem; font-weight: 700; color: #60a5fa;">-</div>
+        <div id="stats-section"
+            style="display: none; margin-bottom: 2rem; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem;">
+            <h3
+                style="margin-top: 0; margin-bottom: 1rem; color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                Replay Analytics</h3>
+            <div style="display: flex; flex-wrap: wrap; gap: 2rem; align-items: center;">
+                <div style="flex: 1; min-width: 250px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 1rem; text-align: center;">
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">300s</div>
+                            <div id="stat-300" style="font-size: 1.5rem; font-weight: 700; color: #60a5fa;">-</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">100s</div>
+                            <div id="stat-100" style="font-size: 1.5rem; font-weight: 700; color: #4ade80;">-</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">50s</div>
+                            <div id="stat-50" style="font-size: 1.5rem; font-weight: 700; color: #fbbf24;">-</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Misses</div>
+                            <div id="stat-miss" style="font-size: 1.5rem; font-weight: 700; color: #f87171;">-</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Max Combo</div>
+                            <div id="stat-combo" style="font-size: 1.5rem; font-weight: 700; color: #c084fc;">-</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Star Rating</div>
+                            <div id="stat-stars" style="font-size: 1.5rem; font-weight: 700; color: #facc15;">-</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">PP Gained</div>
+                            <div id="stat-pp" style="font-size: 1.5rem; font-weight: 700; color: #ec4899;">-</div>
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">100s</div>
-                    <div id="stat-100" style="font-size: 1.5rem; font-weight: 700; color: #4ade80;">-</div>
-                </div>
-                <div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">50s</div>
-                    <div id="stat-50" style="font-size: 1.5rem; font-weight: 700; color: #fbbf24;">-</div>
-                </div>
-                <div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Misses</div>
-                    <div id="stat-miss" style="font-size: 1.5rem; font-weight: 700; color: #f87171;">-</div>
-                </div>
-                <div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Max Combo</div>
-                    <div id="stat-combo" style="font-size: 1.5rem; font-weight: 700; color: #c084fc;">-</div>
-                </div>
-                <div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Star Rating</div>
-                    <div id="stat-stars" style="font-size: 1.5rem; font-weight: 700; color: #facc15;">-</div>
-                </div>
-                <div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">PP Gained</div>
-                    <div id="stat-pp" style="font-size: 1.5rem; font-weight: 700; color: #ec4899;">-</div>
+                <div style="width: 250px; height: 250px; margin: 0 auto;">
+                    <canvas id="hitsChart"></canvas>
                 </div>
             </div>
         </div>
@@ -236,205 +290,239 @@
                 <div id="progress-bar" class="progress-bar"></div>
             </div>
             <div id="progress-text" class="progress-text">Waiting for GPU...</div>
-            
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; margin-bottom: 1rem;">
-                <h3 style="color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; margin: 0;">Real-time Logs</h3>
-                <button onclick="if(currentLogsUrl) { logsSeen=0; document.getElementById('logs').innerHTML=''; fetchLogs(currentLogsUrl); }" style="background: none; border: 1px solid var(--border); color: var(--text); padding: 0.35rem 0.85rem; border-radius: 4px; cursor: pointer; font-size: 0.75rem; transition: all 0.2s;"><i class="fas fa-sync-alt" style="margin-right: 4px;"></i> Refresh Logs</button>
+
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; margin-bottom: 1rem;">
+                <h3
+                    style="color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; margin: 0;">
+                    Real-time Logs</h3>
+                <button
+                    onclick="if(currentLogsUrl) { logsSeen=0; document.getElementById('logs').innerHTML=''; fetchLogs(currentLogsUrl); }"
+                    style="background: none; border: 1px solid var(--border); color: var(--text); padding: 0.35rem 0.85rem; border-radius: 4px; cursor: pointer; font-size: 0.75rem; transition: all 0.2s;"><i
+                        class="fas fa-sync-alt" style="margin-right: 4px;"></i> Refresh Logs</button>
             </div>
             <div id="logs" class="logs-container"></div>
         </div>
     </div>
-    
+
     <script>
-    let durationSec = 0;
-    let logsSeen = 0;
-    let currentLogsUrl = null;
+        let durationSec = 0;
+        let logsSeen = 0;
+        let currentLogsUrl = null;
 
-    function formatJson(str) {
-        try {
-            const obj = JSON.parse(str);
-            const formatted = JSON.stringify(obj, null, 2);
-            return formatted.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
-                let cls = 'log-json-number';
-                if (/^"/.test(match)) {
-                    if (/:$/.test(match)) {
-                        cls = 'log-json-key';
-                    } else {
-                        cls = 'log-json-string';
+        function formatJson(str) {
+            try {
+                const obj = JSON.parse(str);
+                const formatted = JSON.stringify(obj, null, 2);
+                return formatted.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                    let cls = 'log-json-number';
+                    if (/^"/.test(match)) {
+                        if (/:$/.test(match)) {
+                            cls = 'log-json-key';
+                        } else {
+                            cls = 'log-json-string';
+                        }
+                    } else if (/true|false/.test(match)) {
+                        cls = 'log-json-boolean';
                     }
-                } else if (/true|false/.test(match)) {
-                    cls = 'log-json-boolean';
-                }
-                return '<span class="' + cls + '">' + match + '</span>';
-            });
-        } catch (e) {
-            return null; // Not valid JSON
-        }
-    }
-
-    function parseLogLine(line) {
-        if (!line.trim()) return '';
-        
-        let html = '<div class="log-line">';
-        
-        // Match [HH:MM:SS] timestamp
-        const timeMatch = line.match(/^(\[\d{2}:\d{2}:\d{2}\])(.*)/);
-        let content = line;
-        
-        if (timeMatch) {
-            html += `<span class="log-time">${timeMatch[1]}</span>`;
-            content = timeMatch[2];
-        }
-
-        // Try parsing JSON block if it looks like one
-        if (content.trim().startsWith('{') && content.trim().endsWith('}')) {
-            const jsonHtml = formatJson(content);
-            if (jsonHtml) {
-                html += `<pre style="margin: 0;">${jsonHtml}</pre>`;
-                html += '</div>';
-                return html;
+                    return '<span class="' + cls + '">' + match + '</span>';
+                });
+            } catch (e) {
+                return null; // Not valid JSON
             }
         }
 
-        // Check for ffmpeg progress
-        // Check for Danser progress: "Progress: 15%, Speed: 1.42x, ETA: 2m46s"
-        const danserProgMatch = content.match(/Progress:\s*(\d+)%,\s*Speed:\s*([\d.]+)x,\s*ETA:\s*(.+)/);
-        if (danserProgMatch) {
-            let pct = parseInt(danserProgMatch[1]);
-            let speed = danserProgMatch[2];
-            let eta = danserProgMatch[3];
-            document.getElementById('progress-bar').style.width = pct + '%';
-            document.getElementById('progress-text').innerText = `Phase: Rendering Video - ${pct}% (Speed: ${speed}x, ETA: ${eta})`;
-            return ''; // Hide this log line from the output to reduce spam
-        }
+        function parseLogLine(line) {
+            if (!line.trim()) return '';
 
-        // Apply colors
-        if (content.includes('Beatmap not found') || content.match(/\b(Error|failed|invalid)\b/i)) {
-            html += `<span class="log-error"><i class="fas fa-times-circle"></i> ${content}</span>`;
-        } else if (content.match(/\b(Finished!|success|Loaded|Initialized!|PERFECT|loaded\.)\b/)) {
-            html += `<span class="log-success"><i class="fas fa-check-circle"></i> ${content}</span>`;
-        } else if (content.match(/\bWarning\b/i)) {
-            html += `<span class="log-warn"><i class="fas fa-exclamation-triangle"></i> ${content}</span>`;
-        } else if (content.trim().startsWith('frame=')) {
-            html += `<span style="color: #6b7280; font-size: 0.85em; font-family: monospace;">${content}</span>`;
-        } else if (content.includes('Downloading') || content.includes('Starting') || content.includes('Uploading')) {
-            html += `<span style="color: #60a5fa;"><i class="fas fa-info-circle"></i> ${content}</span>`;
-        } else if (content.includes('Command:')) {
-            html += `<span style="color: #c084fc; font-family: monospace;">${content}</span>`;
-        } else {
-            html += content;
-        }
+            let html = '<div class="log-line">';
 
-        html += '</div>';
-        return html;
-    }
+            // Match [HH:MM:SS] timestamp
+            const timeMatch = line.match(/^(\[\d{2}:\d{2}:\d{2}\])(.*)/);
+            let content = line;
 
-    async function fetchLogs(logsUrl) {
-        try {
-            const r = await fetch(logsUrl + '?t=' + Date.now());
-            if (!r.ok) return;
-            const text = await r.text();
-            
-            if (text.length > logsSeen) {
-                const newText = text.substring(logsSeen);
-                logsSeen = text.length;
-                
-                // Split on both \n and \r because ffmpeg uses \r to overwrite progress
-                const lines = newText.split(/[\r\n]+/);
-                let logsHtml = '';
-                for (let line of lines) {
-                    if (!line.trim()) continue;
-                    
-                    // Update phases based on known log lines
-                    if (line.includes("Setting up osu! directory")) {
-                        document.getElementById('progress-text').innerText = "Phase: Initializing Environment";
-                    } else if (line.includes("Downloading replay")) {
-                        document.getElementById('progress-text').innerText = "Phase: Downloading Replay";
-                    } else if (line.includes("Downloading beatmap set")) {
-                        document.getElementById('progress-text').innerText = "Phase: Downloading Beatmap";
-                    } else if (line.includes("Downloading skin")) {
-                        document.getElementById('progress-text').innerText = "Phase: Downloading Custom Skin";
-                    } else if (line.includes("Starting danser render")) {
-                        document.getElementById('progress-text').innerText = "Phase: Danser Engine Started";
-                    } else if (line.includes("Uploading video")) {
-                        document.getElementById('progress-text').innerText = "Phase: Uploading Result to Storage";
-                        document.getElementById('progress-bar').style.width = '100%';
-                    }
-                    
-                    logsHtml += parseLogLine(line);
-                }
-                
-                if (logsHtml) {
-                    const logsContainer = document.getElementById('logs');
-                    logsContainer.innerHTML += logsHtml;
-                    logsContainer.scrollTop = logsContainer.scrollHeight;
+            if (timeMatch) {
+                html += `<span class="log-time">${timeMatch[1]}</span>`;
+                content = timeMatch[2];
+            }
+
+            // Try parsing JSON block if it looks like one
+            if (content.trim().startsWith('{') && content.trim().endsWith('}')) {
+                const jsonHtml = formatJson(content);
+                if (jsonHtml) {
+                    html += `<pre style="margin: 0;">${jsonHtml}</pre>`;
+                    html += '</div>';
+                    return html;
                 }
             }
-        } catch (e) {
-            console.error(e);
-        }
-    }
 
-    async function check() {
-        try {
-            let r = await fetch('/v1/jobs/{{ job_id }}');
-            if (!r.ok) {
+            // Check for ffmpeg progress
+            // Check for Danser progress: "Progress: 15%, Speed: 1.42x, ETA: 2m46s"
+            const danserProgMatch = content.match(/Progress:\s*(\d+)%,\s*Speed:\s*([\d.]+)x,\s*ETA:\s*(.+)/);
+            if (danserProgMatch) {
+                let pct = parseInt(danserProgMatch[1]);
+                let speed = danserProgMatch[2];
+                let eta = danserProgMatch[3];
+                document.getElementById('progress-bar').style.width = pct + '%';
+                document.getElementById('progress-text').innerText = `Phase: Rendering Video - ${pct}% (Speed: ${speed}x, ETA: ${eta})`;
+                return ''; // Hide this log line from the output to reduce spam
+            }
+
+            // Apply colors
+            if (content.includes('Beatmap not found') || content.match(/\b(Error|failed|invalid)\b/i)) {
+                html += `<span class="log-error"><i class="fas fa-times-circle"></i> ${content}</span>`;
+            } else if (content.match(/\b(Finished!|success|Loaded|Initialized!|PERFECT|loaded\.)\b/)) {
+                html += `<span class="log-success"><i class="fas fa-check-circle"></i> ${content}</span>`;
+            } else if (content.match(/\bWarning\b/i)) {
+                html += `<span class="log-warn"><i class="fas fa-exclamation-triangle"></i> ${content}</span>`;
+            } else if (content.trim().startsWith('frame=')) {
+                html += `<span style="color: #6b7280; font-size: 0.85em; font-family: monospace;">${content}</span>`;
+            } else if (content.includes('Downloading') || content.includes('Starting') || content.includes('Uploading')) {
+                html += `<span style="color: #60a5fa;"><i class="fas fa-info-circle"></i> ${content}</span>`;
+            } else if (content.includes('Command:')) {
+                html += `<span style="color: #c084fc; font-family: monospace;">${content}</span>`;
+            } else {
+                html += content;
+            }
+
+            html += '</div>';
+            return html;
+        }
+
+        async function fetchLogs(logsUrl) {
+            try {
+                const r = await fetch(logsUrl + '?t=' + Date.now());
+                if (!r.ok) return;
+                const text = await r.text();
+
+                if (text.length > logsSeen) {
+                    const newText = text.substring(logsSeen);
+                    logsSeen = text.length;
+
+                    // Split on both \n and \r because ffmpeg uses \r to overwrite progress
+                    const lines = newText.split(/[\r\n]+/);
+                    let logsHtml = '';
+                    for (let line of lines) {
+                        if (!line.trim()) continue;
+
+                        // Update phases based on known log lines
+                        if (line.includes("Setting up osu! directory")) {
+                            document.getElementById('progress-text').innerText = "Phase: Initializing Environment";
+                        } else if (line.includes("Downloading replay")) {
+                            document.getElementById('progress-text').innerText = "Phase: Downloading Replay";
+                        } else if (line.includes("Downloading beatmap set")) {
+                            document.getElementById('progress-text').innerText = "Phase: Downloading Beatmap";
+                        } else if (line.includes("Downloading skin")) {
+                            document.getElementById('progress-text').innerText = "Phase: Downloading Custom Skin";
+                        } else if (line.includes("Starting danser render")) {
+                            document.getElementById('progress-text').innerText = "Phase: Danser Engine Started";
+                        } else if (line.includes("Uploading video")) {
+                            document.getElementById('progress-text').innerText = "Phase: Uploading Result to Storage";
+                            document.getElementById('progress-bar').style.width = '100%';
+                        }
+
+                        logsHtml += parseLogLine(line);
+                    }
+
+                    if (logsHtml) {
+                        const logsContainer = document.getElementById('logs');
+                        logsContainer.innerHTML += logsHtml;
+                        logsContainer.scrollTop = logsContainer.scrollHeight;
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function check() {
+            try {
+                let r = await fetch('/v1/jobs/{{ job_id }}');
+                if (!r.ok) {
+                    setTimeout(check, 3000);
+                    return;
+                }
+                let d = await r.json();
+
+                const badge = document.getElementById('status-badge');
+                badge.innerText = d.status;
+                badge.className = 'status-badge';
+                if (d.status === 'failed') badge.classList.add('status-failed');
+                if (d.status === 'completed') badge.classList.add('status-completed');
+                else badge.classList.add('status-running');
+
+                if (d.config && d.config.replay_stats) {
+                    const stats = d.config.replay_stats;
+                    document.getElementById('stats-section').style.display = 'block';
+                    document.getElementById('stat-300').innerText = stats['300s'] !== undefined ? stats['300s'] : '-';
+                    document.getElementById('stat-100').innerText = stats['100s'] !== undefined ? stats['100s'] : '-';
+                    document.getElementById('stat-50').innerText = stats['50s'] !== undefined ? stats['50s'] : '-';
+                    document.getElementById('stat-miss').innerText = stats['misses'] !== undefined ? stats['misses'] : '-';
+                    document.getElementById('stat-combo').innerText = stats['max_combo'] !== undefined ? stats['max_combo'] + 'x' : '-';
+                    document.getElementById('stat-stars').innerText = stats['star_rating'] ? parseFloat(stats['star_rating']).toFixed(2) + '★' : '-';
+                    document.getElementById('stat-pp').innerText = stats['pp'] ? parseFloat(stats['pp']).toFixed(2) + ' pp' : '-';
+
+                    if (!window.hitsChartRendered) {
+                        window.hitsChartRendered = true;
+                        const ctx = document.getElementById('hitsChart').getContext('2d');
+                        new Chart(ctx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: ['300s', '100s', '50s', 'Misses'],
+                                datasets: [{
+                                    data: [stats['300s'] || 0, stats['100s'] || 0, stats['50s'] || 0, stats['misses'] || 0],
+                                    backgroundColor: ['#60a5fa', '#4ade80', '#fbbf24', '#f87171'],
+                                    borderWidth: 0,
+                                    hoverOffset: 4
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: {
+                                        position: 'right',
+                                        labels: { color: '#f4f4f5', font: { family: 'Inter' } }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+
+                if (d.artifacts && d.artifacts.logs_url) {
+                    currentLogsUrl = d.artifacts.logs_url;
+                    await fetchLogs(d.artifacts.logs_url);
+                }
+
+                if (d.status === 'completed') {
+                    document.getElementById('progress-section').style.display = 'none';
+                    document.getElementById('video-section').style.display = 'block';
+                    let v = document.getElementById('v');
+                    if (!v.getAttribute('src') && v.innerHTML.trim() === '') {
+                        v.setAttribute('src', d.artifacts.video_url);
+                        document.getElementById('d').href = d.artifacts.video_url;
+                    }
+                    return;
+                } else if (d.status === 'failed') {
+                    document.getElementById('progress-bar').style.width = '100%';
+                    document.getElementById('progress-bar').style.background = '#ef4444';
+                    document.getElementById('progress-text').innerText = 'Render failed.';
+                    document.getElementById('progress-text').style.color = '#ef4444';
+                    return;
+                } else if (d.status === 'queued') {
+                    document.getElementById('progress-text').innerText = 'Waiting for worker...';
+                }
+
                 setTimeout(check, 3000);
-                return;
+            } catch (e) {
+                setTimeout(check, 3000);
             }
-            let d = await r.json();
-            
-            const badge = document.getElementById('status-badge');
-            badge.innerText = d.status;
-            badge.className = 'status-badge';
-            if (d.status === 'failed') badge.classList.add('status-failed');
-            if (d.status === 'completed') badge.classList.add('status-completed');
-            else badge.classList.add('status-running');
-            
-            if (d.config && d.config.replay_stats) {
-                const stats = d.config.replay_stats;
-                document.getElementById('stats-section').style.display = 'block';
-                document.getElementById('stat-300').innerText = stats['300s'] !== undefined ? stats['300s'] : '-';
-                document.getElementById('stat-100').innerText = stats['100s'] !== undefined ? stats['100s'] : '-';
-                document.getElementById('stat-50').innerText = stats['50s'] !== undefined ? stats['50s'] : '-';
-                document.getElementById('stat-miss').innerText = stats['misses'] !== undefined ? stats['misses'] : '-';
-                document.getElementById('stat-combo').innerText = stats['max_combo'] !== undefined ? stats['max_combo'] + 'x' : '-';
-                document.getElementById('stat-stars').innerText = stats['star_rating'] ? parseFloat(stats['star_rating']).toFixed(2) + '★' : '-';
-                document.getElementById('stat-pp').innerText = stats['pp'] ? parseFloat(stats['pp']).toFixed(2) + ' pp' : '-';
-            }
-
-            if (d.artifacts && d.artifacts.logs_url) {
-                currentLogsUrl = d.artifacts.logs_url;
-                await fetchLogs(d.artifacts.logs_url);
-            }
-            
-            if (d.status === 'completed') {
-                document.getElementById('progress-section').style.display = 'none';
-                document.getElementById('video-section').style.display = 'block';
-                let v = document.getElementById('v');
-                if (!v.getAttribute('src') && v.innerHTML.trim() === '') {
-                    v.setAttribute('src', d.artifacts.video_url);
-                    document.getElementById('d').href = d.artifacts.video_url;
-                }
-                return;
-            } else if (d.status === 'failed') {
-                document.getElementById('progress-bar').style.width = '100%';
-                document.getElementById('progress-bar').style.background = '#ef4444';
-                document.getElementById('progress-text').innerText = 'Render failed.';
-                document.getElementById('progress-text').style.color = '#ef4444';
-                return;
-            } else if (d.status === 'queued') {
-                document.getElementById('progress-text').innerText = 'Waiting for worker...';
-            }
-            
-            setTimeout(check, 3000);
-        } catch (e) {
-            setTimeout(check, 3000);
         }
-    }
-    
-    // Initial load
-    check();
+
+        // Initial load
+        check();
     </script>
 </body>
+
 </html>

@@ -211,7 +211,7 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
             pp_gained = 0.0
             try:
                 # Matches: | 1 | Azaken | 57,650,580 | 98.68 | S | 1,192 | 24 | 0 | 0 | 1,588 | 1,588 | | 331.55 |
-                match = re.search(r'\|\s*1\s*\|(?:[^|]+\|){11}\s*([\d.]+)\s*\|', danser_output)
+                match = re.search(r'\|\s*1\s*\|(?:[^|]*\|){11}\s*([\d.]+)\s*\|', danser_output)
                 if match:
                     pp_gained = float(match.group(1))
                     log(f"Parsed PP: {pp_gained}")
