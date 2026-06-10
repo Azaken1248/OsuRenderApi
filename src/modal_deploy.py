@@ -66,13 +66,29 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
             os.makedirs(SONGS_DIR, exist_ok=True)
             if not os.path.exists(osz_path):
                 import httpx as hx
+                mirrors = [
+                    f"https://api.nerinyan.moe/d/{set_id}",
+                    f"https://osu.direct/api/d/{set_id}",
+                    f"https://catboy.best/d/{set_id}",
+                ]
+                downloaded = False
+                last_error = ""
                 with hx.Client(follow_redirects=True, timeout=60.0) as client:
-                    dl = client.get(f"https://api.nerinyan.moe/d/{set_id}")
-                    if dl.status_code == 200:
-                        with open(osz_path, "wb") as f:
-                            f.write(dl.content)
-                    else:
-                        return {"success": False, "error": "Failed to download beatmap from mirror."}
+                    for url in mirrors:
+                        try:
+                            dl = client.get(url)
+                            if dl.status_code == 200 and len(dl.content) > 100:
+                                with open(osz_path, "wb") as f:
+                                    f.write(dl.content)
+                                downloaded = True
+                                break
+                            else:
+                                last_error = f"{url} returned status {dl.status_code}"
+                        except Exception as e:
+                            last_error = f"{url} failed: {str(e)}"
+                            continue
+                if not downloaded:
+                    return {"success": False, "error": f"Failed to download beatmap from all mirrors. Last: {last_error}"}
 
             # 3. Run danser
             import subprocess
