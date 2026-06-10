@@ -120,6 +120,28 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
             else:
                 log(f"Beatmap already cached: {osz_path}")
 
+            # --- 2.5 Download skin .osk if needed ---
+            if skin and skin.lower() != "default":
+                skin_folder = os.path.join(SKINS_DIR, skin)
+                if not os.path.exists(skin_folder):
+                    log(f"Downloading skin '{skin}' from R2...")
+                    skin_tmp_path = os.path.join(tmpdir, "skin.osk")
+                    try:
+                        s3.download_file(bucket_name, f"skins/{skin}.osk", skin_tmp_path)
+                        log("  Skin downloaded, extracting...")
+                        import zipfile
+                        os.makedirs(skin_folder, exist_ok=True)
+                        with zipfile.ZipFile(skin_tmp_path, 'r') as z:
+                            z.extractall(skin_folder)
+                        log("  Skin extracted successfully.")
+                        assets_vol.commit()
+                    except Exception as e:
+                        log(f"  Failed to download/extract skin: {e}")
+                        # Don't fail the whole render, just fall back to default
+                        skin = "Default"
+                else:
+                    log(f"Skin already cached: {skin}")
+
             # --- 3. Run danser ---
             log("Starting danser render...")
             env = os.environ.copy()

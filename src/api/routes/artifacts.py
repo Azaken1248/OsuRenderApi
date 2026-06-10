@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from src.core.storage import storage_client
 
 router = APIRouter()
@@ -10,6 +10,18 @@ router = APIRouter()
 )
 async def get_artifact(request: Request, key: str):
     try:
+        # Proxy logs directly to avoid CORS issues with fetch()
+        if key.startswith("logs/"):
+            try:
+                response = storage_client.client.get_object(
+                    bucket_name=storage_client.bucket,
+                    object_name=key,
+                )
+                return Response(content=response.read(), media_type="text/plain")
+            except Exception:
+                # If log doesn't exist yet, just return empty
+                return Response(content="", media_type="text/plain")
+
         url = storage_client.client.presigned_get_object(
             bucket_name=storage_client.bucket,
             object_name=key,
