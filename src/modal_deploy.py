@@ -130,7 +130,8 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
             # --- 2.5 Download skin .osk if needed ---
             if skin and skin.lower() != "default":
                 skin_folder = os.path.join(SKINS_DIR, skin)
-                if not os.path.exists(skin_folder):
+                # Check for skin.ini to ensure it's actually a valid, fully extracted skin
+                if not os.path.exists(os.path.join(skin_folder, "skin.ini")):
                     log(f"Downloading skin '{skin}' from R2...")
                     skin_tmp_path = os.path.join(tmpdir, "skin.osk")
                     try:
