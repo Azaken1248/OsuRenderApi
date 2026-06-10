@@ -12,7 +12,9 @@ image = (
     .run_commands(
         "wget https://github.com/Wieku/danser-go/releases/download/0.11.0/danser-0.11.0-linux.zip",
         "unzip danser-0.11.0-linux.zip -d /usr/local/bin/danser",
-        "chmod +x /usr/local/bin/danser/danser-cli"
+        "chmod +x /usr/local/bin/danser/danser-cli",
+        # Create osu directory structure danser expects
+        "mkdir -p /root/.osu/Songs /root/.osu/Skins",
     )
 )
 
@@ -30,23 +32,29 @@ assets_vol = modal.Volume.from_name("osu-assets", create_if_missing=True)
 def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch: str, target_name: str, bucket_name: str) -> dict:
     """
     Fully self-contained GPU render function.
-    All logic is inlined here because this runs on Modal's cloud,
-    where the local src/ package does not exist.
+    Closely follows the proven legacy_modal_app.py pattern.
     """
-    import asyncio
-    import os
+    import subprocess
+    import shutil
     import tempfile
-    import httpx
+    import time
     import boto3
     from botocore.client import Config
+
+    SONGS_DIR = "/mnt/osu_data/Songs"
+    SKINS_DIR = "/mnt/osu_data/Skins"
+    DANSER_BIN = "/usr/local/bin/danser/danser-cli"
 
     endpoint = os.environ.get("S3_ENDPOINT")
     access_key = os.environ.get("S3_ACCESS_KEY")
     secret_key = os.environ.get("S3_SECRET_KEY")
 
-    SONGS_DIR = "/mnt/osu_data/Songs"
-    DANSER_BIN = "/usr/local/bin/danser/danser-cli"
+    log_lines = [f"=== GPU Render Task Started: {time.ctime()} ===\n"]
 
+    def log(msg: str):
+        log_lines.append(f"[{time.strftime('%H:%M:%S')}] {msg}\n")
+
+    s3 = None
     try:
         s3 = boto3.client(
             "s3",
@@ -56,42 +64,61 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
             config=Config(signature_version="s3v4")
         )
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # 1. Download replay from R2
-            osr_path = os.path.join(tmpdir, "replay.osr")
-            s3.download_file(bucket_name, replay_key, osr_path)
+        # --- Setup osu! directory structure (exactly like legacy) ---
+        log("Setting up osu! directory structure...")
+        os.makedirs(SONGS_DIR, exist_ok=True)
+        os.makedirs(SKINS_DIR, exist_ok=True)
+        os.makedirs("/root/.osu", exist_ok=True)
+        
+        # Symlink Songs/Skins into where danser looks for them
+        if not os.path.exists("/root/.osu/Songs"):
+            os.symlink(SONGS_DIR, "/root/.osu/Songs")
+        if not os.path.exists("/root/.osu/Skins"):
+            os.symlink(SKINS_DIR, "/root/.osu/Skins")
 
-            # 2. Download beatmap if needed
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # --- 1. Download replay from R2 ---
+            osr_path = os.path.join(tmpdir, "replay.osr")
+            log(f"Downloading replay: {replay_key}")
+            s3.download_file(bucket_name, replay_key, osr_path)
+            log(f"Replay downloaded: {os.path.getsize(osr_path)} bytes")
+
+            # --- 2. Download beatmap .osz if needed ---
             osz_path = os.path.join(SONGS_DIR, f"{set_id}.osz")
-            os.makedirs(SONGS_DIR, exist_ok=True)
             if not os.path.exists(osz_path):
-                import httpx as hx
+                log(f"Downloading beatmap set {set_id}...")
+                import httpx
                 mirrors = [
                     f"https://api.nerinyan.moe/d/{set_id}",
                     f"https://osu.direct/api/d/{set_id}",
                     f"https://catboy.best/d/{set_id}",
                 ]
                 downloaded = False
-                last_error = ""
-                with hx.Client(follow_redirects=True, timeout=60.0) as client:
+                with httpx.Client(follow_redirects=True, timeout=60.0) as client:
                     for url in mirrors:
                         try:
+                            log(f"  Trying: {url}")
                             dl = client.get(url)
                             if dl.status_code == 200 and len(dl.content) > 100:
                                 with open(osz_path, "wb") as f:
                                     f.write(dl.content)
+                                log(f"  Downloaded {len(dl.content)} bytes from {url}")
                                 downloaded = True
+                                assets_vol.commit()
                                 break
                             else:
-                                last_error = f"{url} returned status {dl.status_code}"
+                                log(f"  Failed: status {dl.status_code}, size {len(dl.content)}")
                         except Exception as e:
-                            last_error = f"{url} failed: {str(e)}"
+                            log(f"  Error: {e}")
                             continue
                 if not downloaded:
-                    return {"success": False, "error": f"Failed to download beatmap from all mirrors. Last: {last_error}"}
+                    return _upload_log_and_fail(s3, bucket_name, job_id, log_lines,
+                                                "Failed to download beatmap from all mirrors.")
+            else:
+                log(f"Beatmap already cached: {osz_path}")
 
-            # 3. Run danser
-            import subprocess
+            # --- 3. Run danser ---
+            log("Starting danser render...")
             env = os.environ.copy()
             env.update({
                 "DISPLAY": ":99",
@@ -100,63 +127,105 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
                 "__NV_PRIME_RENDER_OFFLOAD": "1"
             })
 
+            # Output goes into danser's own videos directory
             cmd = [
-                "xvfb-run", "-a", "-s", "-screen 0 1920x1080x24 +extension GLX +render -noreset",
+                "xvfb-run", "-a", "-s",
+                "-screen 0 1920x1080x24 +extension GLX +render -noreset",
                 DANSER_BIN,
                 "-nodbcheck",
                 f"-replay={osr_path}",
                 f"-skin={skin}",
                 f"-sPatch={patch}",
-                f"-out={tmpdir}/{target_name}",
+                f"-out={target_name}",
                 "-record"
             ]
+            log(f"Command: {' '.join(cmd)}")
 
-            log_path = os.path.join(tmpdir, "render.log")
-            with open(log_path, "w") as log_file:
+            danser_log_path = os.path.join(tmpdir, "danser.log")
+            with open(danser_log_path, "w") as danser_log:
                 proc = subprocess.run(
-                    cmd, env=env, cwd=tmpdir,
-                    stdout=log_file, stderr=subprocess.STDOUT,
+                    cmd, env=env,
+                    stdout=danser_log, stderr=subprocess.STDOUT,
                     timeout=600
                 )
+            
+            # Read danser output
+            with open(danser_log_path, "r") as f:
+                danser_output = f.read()
+            log(f"Danser exit code: {proc.returncode}")
+            log(f"Danser output ({len(danser_output)} chars):\n{danser_output[-2000:]}")
 
             if proc.returncode != 0:
-                log_content = ""
-                try:
-                    with open(log_path) as f:
-                        log_content = f.read()[-500:]
-                except:
-                    pass
-                return {"success": False, "error": f"Danser failed (rc={proc.returncode}). Last log: {log_content}"}
+                return _upload_log_and_fail(s3, bucket_name, job_id, log_lines,
+                                            f"Danser failed with exit code {proc.returncode}")
 
-            # 4. Find video output
-            video_path = os.path.join(tmpdir, f"{target_name}.mp4")
-            if not os.path.exists(video_path):
-                video_path = os.path.join(tmpdir, "videos", f"{target_name}.mp4")
-                if not os.path.exists(video_path):
-                    return {"success": False, "error": "Output video not found."}
+            # --- 4. Find video output ---
+            # danser outputs to various locations, check them all (legacy pattern)
+            danser_dir = os.path.dirname(DANSER_BIN)
+            search_paths = [
+                os.path.join(tmpdir, f"{target_name}.mp4"),
+                os.path.join(tmpdir, "videos", f"{target_name}.mp4"),
+                os.path.join(danser_dir, "videos", f"{target_name}.mp4"),
+                f"/usr/local/bin/danser/videos/{target_name}.mp4",
+                os.path.join(tmpdir, f"{target_name}.mp4.mp4"),
+            ]
+            
+            video_path = None
+            log("Searching for output video...")
+            for p in search_paths:
+                log(f"  Checking: {p} -> exists={os.path.exists(p)}")
+                if os.path.exists(p):
+                    video_path = p
+                    break
 
-            # 5. Generate thumbnail
+            # Also list danser directory contents for debugging
+            for search_dir in [tmpdir, os.path.join(danser_dir, "videos"), danser_dir]:
+                if os.path.exists(search_dir):
+                    try:
+                        contents = os.listdir(search_dir)
+                        log(f"  Contents of {search_dir}: {contents}")
+                    except:
+                        pass
+
+            if not video_path:
+                return _upload_log_and_fail(s3, bucket_name, job_id, log_lines,
+                                            "Output video not found in any expected location.")
+
+            log(f"Found video: {video_path} ({os.path.getsize(video_path)} bytes)")
+
+            # --- 5. Generate thumbnail ---
             thumb_path = os.path.join(tmpdir, "thumb.jpg")
             subprocess.run(
-                ["ffmpeg", "-y", "-ss", "00:00:15", "-i", video_path, "-vframes", "1", "-q:v", "2", thumb_path],
+                ["ffmpeg", "-y", "-ss", "00:00:15", "-i", video_path,
+                 "-vframes", "1", "-q:v", "2", thumb_path],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                 timeout=30
             )
 
-            # 6. Upload results to R2
+            # --- 6. Upload results to R2 ---
             video_key = f"videos/{job_id}.mp4"
             thumb_key = f"thumbnails/{job_id}.jpg"
             log_key = f"logs/{job_id}.log"
 
-            s3.upload_file(video_path, bucket_name, video_key, ExtraArgs={"ContentType": "video/mp4"})
+            log(f"Uploading video to {video_key}...")
+            s3.upload_file(video_path, bucket_name, video_key,
+                           ExtraArgs={"ContentType": "video/mp4"})
+            
             if os.path.exists(thumb_path):
-                s3.upload_file(thumb_path, bucket_name, thumb_key, ExtraArgs={"ContentType": "image/jpeg"})
-            if os.path.exists(log_path):
-                s3.upload_file(log_path, bucket_name, log_key, ExtraArgs={"ContentType": "text/plain"})
+                log(f"Uploading thumbnail to {thumb_key}...")
+                s3.upload_file(thumb_path, bucket_name, thumb_key,
+                               ExtraArgs={"ContentType": "image/jpeg"})
 
-            # Commit volume so beatmap persists for next render
-            assets_vol.commit()
+            # Upload full log
+            full_log = "".join(log_lines)
+            import io
+            s3.upload_fileobj(
+                io.BytesIO(full_log.encode()),
+                bucket_name, log_key,
+                ExtraArgs={"ContentType": "text/plain"}
+            )
 
+            log("Done!")
             return {
                 "success": True,
                 "video_key": video_key,
@@ -165,4 +234,26 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
             }
 
     except Exception as e:
+        try:
+            _upload_log_and_fail(s3, bucket_name, job_id, log_lines, str(e))
+        except:
+            pass
         return {"success": False, "error": str(e)}
+
+
+def _upload_log_and_fail(s3, bucket_name: str, job_id: str, log_lines: list, error: str) -> dict:
+    """Upload the log to R2 even on failure, so we can debug."""
+    import io
+    log_lines.append(f"FATAL ERROR: {error}\n")
+    log_key = f"logs/{job_id}.log"
+    try:
+        if s3 is not None:
+            full_log = "".join(log_lines)
+            s3.upload_fileobj(
+                io.BytesIO(full_log.encode()),
+                bucket_name, log_key,
+                ExtraArgs={"ContentType": "text/plain"}
+            )
+    except:
+        pass
+    return {"success": False, "error": error, "log_key": log_key}
