@@ -12,9 +12,7 @@ image = (
     .run_commands(
         "wget https://github.com/Wieku/danser-go/releases/download/0.11.0/danser-0.11.0-linux.zip",
         "unzip danser-0.11.0-linux.zip -d /usr/local/bin/danser",
-        "chmod +x /usr/local/bin/danser/danser-cli",
-        # Create osu directory structure danser expects
-        "mkdir -p /root/.osu/Songs /root/.osu/Skins",
+        "chmod +x /usr/local/bin/danser/danser-cli"
     )
 )
 
@@ -71,8 +69,13 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
         os.makedirs("/root/.osu", exist_ok=True)
         
         # Symlink Songs/Skins into where danser looks for them
+        if os.path.exists("/root/.osu/Songs") and not os.path.islink("/root/.osu/Songs"):
+            shutil.rmtree("/root/.osu/Songs")
         if not os.path.exists("/root/.osu/Songs"):
             os.symlink(SONGS_DIR, "/root/.osu/Songs")
+            
+        if os.path.exists("/root/.osu/Skins") and not os.path.islink("/root/.osu/Skins"):
+            shutil.rmtree("/root/.osu/Skins")
         if not os.path.exists("/root/.osu/Skins"):
             os.symlink(SKINS_DIR, "/root/.osu/Skins")
 
