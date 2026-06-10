@@ -206,6 +206,18 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
             log(f"Danser exit code: {proc.returncode}")
             log(f"Danser output ({len(danser_output)} chars):\n{danser_output[-2000:]}")
 
+            # Parse PP from danser output table
+            import re
+            pp_gained = 0.0
+            try:
+                # Matches: | 1 | Azaken | 57,650,580 | 98.68 | S | 1,192 | 24 | 0 | 0 | 1,588 | 1,588 | | 331.55 |
+                match = re.search(r'\|\s*1\s*\|(?:[^|]+\|){11}\s*([\d.]+)\s*\|', danser_output)
+                if match:
+                    pp_gained = float(match.group(1))
+                    log(f"Parsed PP: {pp_gained}")
+            except Exception as e:
+                log(f"Failed to parse PP from output: {e}")
+
             if "Beatmap not found" in danser_output:
                 return _upload_log_and_fail(s3, bucket_name, job_id, shared_log_path,
                                             "Beatmap not found! The replay requires a beatmap that is unranked or not available on the osu! API.")
@@ -281,7 +293,8 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
                 "success": True,
                 "video_key": video_key,
                 "thumb_key": thumb_key,
-                "log_key": log_key
+                "log_key": log_key,
+                "pp": pp_gained
             }
 
     except Exception as e:

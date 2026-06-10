@@ -172,6 +172,13 @@ async def _process_render_job(job_id: str):
                     video_key = str(result_dict.get("video_key", ""))
                     thumb_key = str(result_dict.get("thumb_key", ""))
                     
+                    if "pp" in result_dict:
+                        c_dict = dict(job.config)
+                        if "replay_stats" in c_dict:
+                            c_dict["replay_stats"]["pp"] = result_dict["pp"]
+                        job.config = c_dict
+                        await db.commit()
+                    
                 else:
                     osz_path = os.path.join(SONGS_DIR, f"{set_id}.osz")
                     os.makedirs(SONGS_DIR, exist_ok=True)

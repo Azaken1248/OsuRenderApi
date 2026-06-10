@@ -6,6 +6,7 @@
     <title>OsuRender: {{ map_title }}</title>
     <meta name="description" content="Watch this osu! replay render powered by OsuRender Cloud API.">
     <meta name="theme-color" content="#ff66aa">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
         
@@ -189,10 +190,10 @@
             <div id="status-badge" class="status-badge">queued</div>
         </div>
 
-        <div id="video-section" style="display: none;">
+        <div id="video-section" style="display: none; margin-bottom: 2.5rem;">
             <video id="v" controls poster="{{ thumb_url }}">{{ video_src_html | safe }}</video>
             <div style="text-align: center;">
-                <a id="d" href="{{ video_url }}" class="btn">Download Render</a>
+                <a id="d" href="{{ video_url }}" class="btn"><i class="fas fa-download" style="margin-right: 8px;"></i> Download Render</a>
             </div>
         </div>
 
@@ -223,6 +224,10 @@
                     <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Star Rating</div>
                     <div id="stat-stars" style="font-size: 1.5rem; font-weight: 700; color: #facc15;">-</div>
                 </div>
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">PP Gained</div>
+                    <div id="stat-pp" style="font-size: 1.5rem; font-weight: 700; color: #ec4899;">-</div>
+                </div>
             </div>
         </div>
 
@@ -234,7 +239,7 @@
             
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; margin-bottom: 1rem;">
                 <h3 style="color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; margin: 0;">Real-time Logs</h3>
-                <button onclick="if(currentLogsUrl) { logsSeen=0; document.getElementById('logs').innerHTML=''; fetchLogs(currentLogsUrl); }" style="background: none; border: 1px solid var(--border); color: var(--text); padding: 0.25rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.75rem;">Refresh Logs</button>
+                <button onclick="if(currentLogsUrl) { logsSeen=0; document.getElementById('logs').innerHTML=''; fetchLogs(currentLogsUrl); }" style="background: none; border: 1px solid var(--border); color: var(--text); padding: 0.35rem 0.85rem; border-radius: 4px; cursor: pointer; font-size: 0.75rem; transition: all 0.2s;"><i class="fas fa-sync-alt" style="margin-right: 4px;"></i> Refresh Logs</button>
             </div>
             <div id="logs" class="logs-container"></div>
         </div>
@@ -292,34 +297,30 @@
         }
 
         // Check for ffmpeg progress
-        const durationMatch = content.match(/Duration: (\d{2}):(\d{2}):(\d{2}\.\d{2})/);
-        if (durationMatch) {
-            durationSec = parseInt(durationMatch[1])*3600 + parseInt(durationMatch[2])*60 + parseFloat(durationMatch[3]);
-        }
-
-        const timeProgMatch = content.match(/time=(\d{2}):(\d{2}):(\d{2}\.\d{2})/);
-        if (timeProgMatch && durationSec > 0) {
-            let cur = parseInt(timeProgMatch[1])*3600 + parseInt(timeProgMatch[2])*60 + parseFloat(timeProgMatch[3]);
-            let pct = Math.min(100, Math.max(0, (cur / durationSec) * 100));
-            
-            let dH = Math.floor(durationSec / 3600).toString().padStart(2, '0');
-            let dM = Math.floor((durationSec % 3600) / 60).toString().padStart(2, '0');
-            let dS = Math.floor(durationSec % 60).toString().padStart(2, '0');
-            let cH = timeProgMatch[1];
-            let cM = timeProgMatch[2];
-            let cS = timeProgMatch[3].substring(0, 2);
-            
-            document.getElementById('progress-bar').style.width = pct.toFixed(1) + '%';
-            document.getElementById('progress-text').innerText = `Phase: Rendering Video - ${pct.toFixed(1)}% (${cH}:${cM}:${cS} / ${dH}:${dM}:${dS})`;
+        // Check for Danser progress: "Progress: 15%, Speed: 1.42x, ETA: 2m46s"
+        const danserProgMatch = content.match(/Progress:\s*(\d+)%,\s*Speed:\s*([\d.]+)x,\s*ETA:\s*(.+)/);
+        if (danserProgMatch) {
+            let pct = parseInt(danserProgMatch[1]);
+            let speed = danserProgMatch[2];
+            let eta = danserProgMatch[3];
+            document.getElementById('progress-bar').style.width = pct + '%';
+            document.getElementById('progress-text').innerText = `Phase: Rendering Video - ${pct}% (Speed: ${speed}x, ETA: ${eta})`;
+            return ''; // Hide this log line from the output to reduce spam
         }
 
         // Apply colors
-        if (content.includes('Beatmap not found') || content.includes('failed') || content.includes('Error')) {
-            html += `<span class="log-error">${content}</span>`;
-        } else if (content.includes('Finished!') || content.includes('success')) {
-            html += `<span class="log-success">${content}</span>`;
-        } else if (content.includes('Warning')) {
-            html += `<span class="log-warn">${content}</span>`;
+        if (content.includes('Beatmap not found') || content.match(/\b(Error|failed|invalid)\b/i)) {
+            html += `<span class="log-error"><i class="fas fa-times-circle"></i> ${content}</span>`;
+        } else if (content.match(/\b(Finished!|success|Loaded|Initialized!|PERFECT|loaded\.)\b/)) {
+            html += `<span class="log-success"><i class="fas fa-check-circle"></i> ${content}</span>`;
+        } else if (content.match(/\bWarning\b/i)) {
+            html += `<span class="log-warn"><i class="fas fa-exclamation-triangle"></i> ${content}</span>`;
+        } else if (content.trim().startsWith('frame=')) {
+            html += `<span style="color: #6b7280; font-size: 0.85em; font-family: monospace;">${content}</span>`;
+        } else if (content.includes('Downloading') || content.includes('Starting') || content.includes('Uploading')) {
+            html += `<span style="color: #60a5fa;"><i class="fas fa-info-circle"></i> ${content}</span>`;
+        } else if (content.includes('Command:')) {
+            html += `<span style="color: #c084fc; font-family: monospace;">${content}</span>`;
         } else {
             html += content;
         }
@@ -399,6 +400,7 @@
                 document.getElementById('stat-miss').innerText = stats['misses'] !== undefined ? stats['misses'] : '-';
                 document.getElementById('stat-combo').innerText = stats['max_combo'] !== undefined ? stats['max_combo'] + 'x' : '-';
                 document.getElementById('stat-stars').innerText = stats['star_rating'] ? parseFloat(stats['star_rating']).toFixed(2) + '★' : '-';
+                document.getElementById('stat-pp').innerText = stats['pp'] ? parseFloat(stats['pp']).toFixed(2) + ' pp' : '-';
             }
 
             if (d.artifacts && d.artifacts.logs_url) {
