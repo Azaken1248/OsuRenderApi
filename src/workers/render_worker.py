@@ -51,12 +51,12 @@ async def _process_render_job(job_id: str):
         )
         res = await db.execute(update_stmt)
         if getattr(res, "rowcount", 0) == 0:
-            return
+            return "aborted"
             
         result = await db.execute(select(Job).where(Job.id == uuid.UUID(job_id)))
         job: Job | None = result.scalar_one_or_none()
         if not job:
-            return
+            return "aborted"
 
         try:
             await db.commit()

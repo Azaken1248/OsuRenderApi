@@ -136,6 +136,80 @@ async def test_a3_notification_storm():
     assert new_claims < 50, f"Notification storm protection failed, made {new_claims} drain calls"
     await conn.close()
 
+@pytest.mark.asyncio
+async def test_a4_stuck_processing_sweeper():
+    """Prove: The exact sweeper SQL correctly resets 5-minute stuck PROCESSING tasks"""
+    from src.workers.dispatcher import OutboxDispatcher
+    
+    conn = await get_db()
+    # Insert with PROCESSING and timestamp far in the past
+    job_id = str(uuid.uuid4())
+    event_id = str(uuid.uuid4())
+    await conn.execute(
+        "INSERT INTO jobs (id, status, replay_storage_key, config, client_ip) VALUES ($1, $2, $3, $4, $5)",
+        job_id, "queued", f"replays/{job_id}/replay.osr", "{}", "127.0.0.1"
+    )
+    
+    # Simulate a crash 10 minutes ago
+    past_time = datetime.now(timezone.utc).timestamp() - 600
+    past_dt = datetime.fromtimestamp(past_time, tz=timezone.utc)
+    
+    await conn.execute(
+        "INSERT INTO outbox_events (id, event_type, payload, status, created_at, processing_started_at, retry_count) "
+        "VALUES ($1, $2, $3, 'PROCESSING', $4, $5, 0)",
+        event_id, "render_job_created", json.dumps({"job_id": job_id}), past_dt, past_dt
+    )
+    
+    dispatcher = OutboxDispatcher()
+    await dispatcher.connect()
+    swept_count = await dispatcher.sweep_stuck_events()
+    
+    assert swept_count == 1, "Sweeper SQL failed to identify the stuck task"
+    status = await conn.fetchval("SELECT status FROM outbox_events WHERE id = $1", event_id)
+    assert status == "PENDING", "Sweeper did not revert task to PENDING"
+    
+    await conn.close()
+    
+@pytest.mark.asyncio
+async def test_a5_outbox_claim_race():
+    """Prove: FOR UPDATE SKIP LOCKED perfectly prevents duplicate batch claims across parallel dispatchers"""
+    from src.workers.dispatcher import OutboxDispatcher
+    
+    conn = await get_db()
+    
+    # Insert 1000 pending events
+    values_jobs = []
+    values_events = []
+    for _ in range(1000):
+        job_id = str(uuid.uuid4())
+        event_id = str(uuid.uuid4())
+        values_jobs.append(f"('{job_id}', 'queued', 'test', '{{}}', '127.0.0.1')")
+        values_events.append(f"('{event_id}', 'render_job_created', '{json.dumps({'job_id': job_id})}', 'PENDING', NOW(), 0)")
+        
+    for i in range(0, 1000, 100):
+        chunk_j = values_jobs[i:i+100]
+        chunk_e = values_events[i:i+100]
+        await conn.execute(f"INSERT INTO jobs (id, status, replay_storage_key, config, client_ip) VALUES {','.join(chunk_j)}")
+        await conn.execute(f"INSERT INTO outbox_events (id, event_type, payload, status, created_at, retry_count) VALUES {','.join(chunk_e)}")
+        
+    d1 = OutboxDispatcher()
+    d2 = OutboxDispatcher()
+    d3 = OutboxDispatcher()
+    
+    await asyncio.gather(d1.connect(), d2.connect(), d3.connect())
+    
+    # Execute 3 concurrent drains simultaneously (each can drain up to 100 per call, we do multiple passes)
+    tasks = []
+    for _ in range(10): # total 30 claims * 100 = 3000 max capacity
+        tasks.extend([d1.drain_outbox(), d2.drain_outbox(), d3.drain_outbox()])
+        
+    results = await asyncio.gather(*tasks)
+    
+    total_claimed = sum(results)
+    assert total_claimed == 1000, f"Claim algorithm processed {total_claimed} instead of 1000. FOR UPDATE SKIP LOCKED failed!"
+    
+    await conn.close()
+
 # --- TEST GROUP B: Duplicate Prevention ---
 
 @pytest.mark.asyncio
@@ -147,19 +221,18 @@ async def test_b1_duplicate_dispatch():
     job_id, _ = await insert_job_and_event(conn)
     
     # Dispatch twice concurrently
-    process_render_job.delay(job_id)
-    process_render_job.delay(job_id)
+    res1 = process_render_job.delay(job_id)
+    res2 = process_render_job.delay(job_id)
     
-    for _ in range(120):
-        status = await conn.fetchval("SELECT status FROM jobs WHERE id = $1", job_id)
-        if status in ("completed", "failed"):
-            break
-        await asyncio.sleep(1)
-        
-    # Verify no duplicate rendering
-    # Since we can't easily count worker executions without logs, we can check 
-    # if it throws idempotency errors or if the status is cleanly resolved.
-    assert status in ("completed", "failed")
+    # Await celery results to see exactly what happened
+    r1_val = res1.get(timeout=10)
+    r2_val = res2.get(timeout=10)
+    
+    # Because of idempotency returning 'aborted' for res.rowcount == 0,
+    # exactly one must succeed (None or normal return) and one MUST abort
+    results = [r1_val, r2_val]
+    assert "aborted" in results, "Neither worker aborted! Idempotency failed."
+    assert results.count("aborted") == 1, "Both workers aborted! Idempotency failed."
     await conn.close()
 
 # --- TEST GROUP C: Broker Failure ---

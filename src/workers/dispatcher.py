@@ -142,6 +142,35 @@ class OutboxDispatcher:
             except Exception as e:
                 logger.error(f"Error in safety poll: {e}")
                 
+    async def sweep_stuck_events(self):
+        if not self.pool:
+            return 0
+            
+        logger.debug("Running stuck processing sweeper")
+        query = """
+        WITH stuck AS (
+            SELECT id, retry_count FROM outbox_events 
+            WHERE status = 'PROCESSING' 
+            AND processing_started_at < NOW() - INTERVAL '5 minutes'
+        )
+        UPDATE outbox_events 
+        SET 
+            status = CASE WHEN retry_count >= 3 THEN 'FAILED' ELSE 'PENDING' END::outbox_status,
+            retry_count = CASE WHEN retry_count >= 3 THEN retry_count ELSE retry_count + 1 END,
+            last_error = CASE WHEN retry_count >= 3 THEN 'Stuck in PROCESSING state too many times' ELSE last_error END
+        WHERE id IN (SELECT id FROM stuck)
+        RETURNING id;
+        """
+        try:
+            async with self.pool.acquire() as connection:
+                records = await connection.fetch(query)
+                if records:
+                    logger.warning(f"Swept {len(records)} stuck outbox events (reverted to PENDING or marked FAILED)")
+                return len(records)
+        except Exception as e:
+            logger.error(f"Error in stuck processing sweeper: {e}")
+            return 0
+
     async def stuck_processing_sweeper(self):
         """
         Recovers events that got stuck in PROCESSING due to a crash.
@@ -149,28 +178,7 @@ class OutboxDispatcher:
         while True:
             try:
                 await asyncio.sleep(300) # Every 5 minutes
-                if not self.pool:
-                    continue
-                
-                logger.debug("Running stuck processing sweeper")
-                query = """
-                WITH stuck AS (
-                    SELECT id, retry_count FROM outbox_events 
-                    WHERE status = 'PROCESSING' 
-                    AND processing_started_at < NOW() - INTERVAL '5 minutes'
-                )
-                UPDATE outbox_events 
-                SET 
-                    status = CASE WHEN retry_count >= 3 THEN 'FAILED' ELSE 'PENDING' END::outbox_status,
-                    retry_count = CASE WHEN retry_count >= 3 THEN retry_count ELSE retry_count + 1 END,
-                    last_error = CASE WHEN retry_count >= 3 THEN 'Stuck in PROCESSING state too many times' ELSE last_error END
-                WHERE id IN (SELECT id FROM stuck)
-                RETURNING id;
-                """
-                async with self.pool.acquire() as connection:
-                    records = await connection.fetch(query)
-                    if records:
-                        logger.warning(f"Swept {len(records)} stuck outbox events (reverted to PENDING or marked FAILED)")
+                await self.sweep_stuck_events()
             except asyncio.CancelledError:
                 break
             except Exception as e:
