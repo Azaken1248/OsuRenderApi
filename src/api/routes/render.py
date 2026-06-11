@@ -62,6 +62,22 @@ async def submit_render(
             detail="Invalid skin name. Only alphanumeric characters, underscores, hyphens, and spaces are allowed.",
         )
 
+    client_ip = request.client.host if request.client else "unknown"
+    
+    # Concurrency check: max 2 active jobs per IP
+    from sqlalchemy import select, func
+    active_jobs_query = select(func.count()).select_from(Job).where(
+        Job.client_ip == client_ip,
+        Job.status.in_([JobStatus.QUEUED, JobStatus.RENDERING, JobStatus.DOWNLOADING])
+    )
+    active_jobs_count = await db.scalar(active_jobs_query)
+    
+    if active_jobs_count and active_jobs_count >= 2:
+        raise HTTPException(
+            status_code=429,
+            detail="You already have 2 active render jobs. Please wait for them to finish before queueing more."
+        )
+
     try:
         config = RenderConfig(
             skin=skin,
@@ -93,6 +109,7 @@ async def submit_render(
         progress=0.0,
         replay_storage_key=replay_key,
         config=config.model_dump(),
+        client_ip=client_ip,
     )
     db.add(job)
     await db.flush() 

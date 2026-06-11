@@ -54,6 +54,11 @@ class Job(Base):
         String(512),
         nullable=True,
     )
+    client_ip: Mapped[str | None] = mapped_column(
+        String(45),
+        nullable=True,
+        index=True,
+    )
     video_storage_key: Mapped[str | None] = mapped_column(
         String(512),
         nullable=True,
