@@ -639,7 +639,12 @@ async def upload_skin(skin: UploadFile = File(...)):
         # Extract the .osk file (which is a zip file)
         os.makedirs(SKINS_DIR, exist_ok=True)
         with zipfile.ZipFile(tmp_path, 'r') as zip_ref:
-            zip_ref.extractall(skin_path)
+            skin_path_abs = os.path.abspath(skin_path)
+            for member in zip_ref.namelist():
+                member_path = os.path.abspath(os.path.join(skin_path_abs, member))
+                if os.path.commonpath([skin_path_abs, member_path]) != skin_path_abs:
+                    raise HTTPException(400, f"Attempted Zip Slip: {member}")
+                zip_ref.extract(member, skin_path)
         
         # Clean up temp file
         os.unlink(tmp_path)

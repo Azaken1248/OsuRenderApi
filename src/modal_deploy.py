@@ -140,7 +140,12 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
                         import zipfile
                         os.makedirs(skin_folder, exist_ok=True)
                         with zipfile.ZipFile(skin_tmp_path, 'r') as z:
-                            z.extractall(skin_folder)
+                            skin_folder_abs = os.path.abspath(skin_folder)
+                            for member in z.namelist():
+                                member_path = os.path.abspath(os.path.join(skin_folder_abs, member))
+                                if os.path.commonpath([skin_folder_abs, member_path]) != skin_folder_abs:
+                                    raise Exception(f"Attempted Zip Slip: {member}")
+                                z.extract(member, skin_folder)
                         log("  Skin extracted successfully.")
                         assets_vol.commit()
                     except Exception as e:
