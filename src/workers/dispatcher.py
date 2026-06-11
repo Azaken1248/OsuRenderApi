@@ -17,9 +17,11 @@ class OutboxDispatcher:
         self.settings = get_settings()
         self.pool = None
         self.conn = None
-        # Create a background task for polling
+        # Create background tasks
         self._poll_task = None
         self._sweeper_task = None
+        self._drain_loop_task = None
+        self._drain_event = asyncio.Event()
 
     async def connect(self):
         # We need a dedicated connection for LISTEN
@@ -32,15 +34,35 @@ class OutboxDispatcher:
 
     async def handle_notification(self, connection, pid, channel, payload):
         logger.debug(f"Received notification on {channel} with payload {payload}")
-        # When a notification arrives, we schedule a drain asynchronously
-        asyncio.create_task(self.drain_outbox())
+        # Wake up the drain loop instead of spawning unbounded tasks
+        self._drain_event.set()
+
+    async def drain_loop(self):
+        """
+        Persistent background task that processes events sequentially when notified.
+        """
+        while True:
+            try:
+                await self._drain_event.wait()
+                self._drain_event.clear()
+                
+                # Keep draining until empty
+                while True:
+                    processed = await self.drain_outbox()
+                    if not processed:
+                        break
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in drain loop: {e}", exc_info=True)
+                await asyncio.sleep(5)
 
     async def drain_outbox(self):
         """
         Atomically claim and process a batch of outbox events using SKIP LOCKED.
         """
         if not self.pool:
-            return
+            return 0
 
         query = """
         WITH claimed AS (
@@ -60,7 +82,7 @@ class OutboxDispatcher:
                 records = await connection.fetch(query)
                 
                 if not records:
-                    return
+                    return 0
                 
                 logger.info(f"Claimed {len(records)} events for processing")
                 
@@ -100,9 +122,11 @@ class OutboxDispatcher:
                                 "UPDATE outbox_events SET status = 'PENDING', retry_count = $1, last_error = $2 WHERE id = $3", 
                                 new_retry, str(e), event_id
                             )
+                return len(records)
                             
         except Exception as e:
             logger.error(f"Error draining outbox: {e}", exc_info=True)
+            return 0
 
     async def safety_poll(self):
         """
@@ -130,10 +154,17 @@ class OutboxDispatcher:
                 
                 logger.debug("Running stuck processing sweeper")
                 query = """
+                WITH stuck AS (
+                    SELECT id, retry_count FROM outbox_events 
+                    WHERE status = 'PROCESSING' 
+                    AND processing_started_at < NOW() - INTERVAL '5 minutes'
+                )
                 UPDATE outbox_events 
-                SET status = 'PENDING'
-                WHERE status = 'PROCESSING' 
-                AND processing_started_at < NOW() - INTERVAL '5 minutes'
+                SET 
+                    status = CASE WHEN retry_count >= 3 THEN 'FAILED' ELSE 'PENDING' END::outbox_status,
+                    retry_count = CASE WHEN retry_count >= 3 THEN retry_count ELSE retry_count + 1 END,
+                    last_error = CASE WHEN retry_count >= 3 THEN 'Stuck in PROCESSING state too many times' ELSE last_error END
+                WHERE id IN (SELECT id FROM stuck)
                 RETURNING id;
                 """
                 async with self.pool.acquire() as connection:
@@ -153,13 +184,19 @@ class OutboxDispatcher:
                 # Start background tasks
                 self._poll_task = asyncio.create_task(self.safety_poll())
                 self._sweeper_task = asyncio.create_task(self.stuck_processing_sweeper())
+                self._drain_loop_task = asyncio.create_task(self.drain_loop())
                 
                 # Drain once on startup to catch anything pending
-                await self.drain_outbox()
+                self._drain_event.set()
                 
-                # Wait for the connection to close or throw an error
+                # Wait for the connection to close or throw an error with active heartbeat
                 while self.conn and not self.conn.is_closed():
-                    await asyncio.sleep(1)
+                    try:
+                        await self.conn.execute("SELECT 1")
+                    except Exception as e:
+                        logger.warning(f"Heartbeat failed: {e}")
+                        break
+                    await asyncio.sleep(30)
                     
             except Exception as e:
                 logger.error(f"Dispatcher connection lost: {e}")
@@ -168,6 +205,8 @@ class OutboxDispatcher:
                     self._poll_task.cancel()
                 if self._sweeper_task:
                     self._sweeper_task.cancel()
+                if self._drain_loop_task:
+                    self._drain_loop_task.cancel()
                     
                 if self.pool:
                     await self.pool.close()
