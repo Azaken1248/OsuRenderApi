@@ -181,121 +181,47 @@ async def _process_render_job(job_id: str):
                     return f"Dispatched to Modal: {function_call.object_id}"
                     
                 else:
-                    osz_path = os.path.join(SONGS_DIR, f"{set_id}.osz")
-                    os.makedirs(SONGS_DIR, exist_ok=True)
-                    if not os.path.exists(osz_path) and settings.osu_api_key:
-                        async with httpx.AsyncClient() as client:
-                            dl = await client.get(f"https://api.nerinyan.moe/d/{set_id}", follow_redirects=True, timeout=60.0)
-                            if dl.status_code == 200:
-                                with open(osz_path, "wb") as f:
-                                    f.write(dl.content)
-                            else:
-                                raise Exception("Failed to download beatmap from mirror.")
-
-                    log_path = ""
-                    if os.environ.get("MOCK_DANSER"):
-                        await asyncio.sleep(1)
-                        video_path = os.path.join(tmpdir, f"{target_name}.mp4")
-                        with open(video_path, "wb") as f:
-                            f.write(b"mock video data")
-                        thumb_path = os.path.join(tmpdir, "thumb.jpg")
-                        with open(thumb_path, "wb") as f:
-                            f.write(b"mock thumb data")
-                        log_path = os.path.join(tmpdir, "mock.log")
-                        with open(log_path, "wb") as f:
-                            f.write(b"mock log data")
-                    else:
-                        cmd = [
-                            "xvfb-run", "-a", "-s", "-screen 0 1920x1080x24",
-                            DANSER_BIN,
-                            f"-replay={osr_path}",
-                            f"-skin={job.config.get('skin', 'Default')}",
-                            f"-sPatch={patch}",
-                            f"-out={target_name}",
-                            "-record"
-                        ]
-
-                        proc = await asyncio.create_subprocess_exec(
-                            *cmd,
-                            cwd=tmpdir,
-                            stdout=asyncio.subprocess.PIPE,
-                            stderr=asyncio.subprocess.PIPE
-                        )
-
-                        log_path = os.path.join(tmpdir, "render.log")
-                        log_file = open(log_path, "w")
-
-                        async def read_stdout():
-                            if proc.stdout:
-                                async for line in proc.stdout:
-                                    line_str = line.decode(errors="ignore")
-                                    log_file.write(line_str)
-                                    log_file.flush()
-                                    if "Progress" in line_str:
-                                        try:
-                                            p = float(line_str.split(":")[1].replace("%", "").strip())
-                                            if job is not None:
-                                                job.progress = p
-                                                db.add(job)
-                                                await db.commit()
-                                        except Exception:
-                                            pass
-
-                        async def read_stderr():
-                            if proc.stderr:
-                                async for line in proc.stderr:
-                                    line_str = line.decode(errors="ignore")
-                                    log_file.write(line_str)
-                                    log_file.flush()
-
-                        await asyncio.gather(read_stdout(), read_stderr())
-                        log_file.close()
-                        try:
-                            await asyncio.wait_for(proc.wait(), timeout=settings.render_timeout_seconds)
-                        except asyncio.TimeoutError:
-                            proc.kill()
-                            raise Exception(f"Render timeout ({settings.render_timeout_seconds} seconds)")
-
-                        if proc.returncode != 0:
-                            raise Exception("Danser rendering failed.")
-
-                        video_path = os.path.join(tmpdir, "videos", f"{target_name}.mp4")
-                        if not os.path.exists(video_path):
-                            video_path = os.path.join(tmpdir, f"{target_name}.mp4")
-                            if not os.path.exists(video_path):
-                                raise Exception("Output video not found.")
-
-                        thumb_path = os.path.join(tmpdir, "thumb.jpg")
-                        thumb_proc = await asyncio.create_subprocess_exec(
-                            "ffmpeg", "-y", "-ss", "00:00:15", "-i", video_path, "-vframes", "1", "-q:v", "2", thumb_path,
-                            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-                        )
-                        await thumb_proc.wait()
-
-                    video_key = f"videos/{job_id}.mp4"
-                    thumb_key = f"thumbnails/{job_id}.jpg"
-                    log_key = f"logs/{job_id}.log"
+                    from src.core.render_pipeline import execute_render_pipeline
                     
-                    storage_client.client.fput_object(
+                    endpoint = os.environ.get("STORAGE_ENDPOINT", "minio:9000")
+                    # Make sure it's a valid url
+                    if not endpoint.startswith("http"):
+                        use_ssl = os.environ.get("STORAGE_USE_SSL", "false").lower() == "true"
+                        scheme = "https" if use_ssl else "http"
+                        endpoint = f"{scheme}://{endpoint}"
+
+                    access_key = os.environ.get("STORAGE_ACCESS_KEY", "minioadmin")
+                    secret_key = os.environ.get("STORAGE_SECRET_KEY", "minioadmin")
+                    
+                    result_dict = await asyncio.to_thread(
+                        execute_render_pipeline,
+                        job_id=job_id,
+                        set_id=set_id,
+                        replay_key=job.replay_storage_key,
+                        skin=job.config.get("skin", "Default"),
+                        patch=patch,
+                        target_name=target_name,
                         bucket_name=storage_client.bucket,
-                        object_name=video_key,
-                        file_path=video_path,
-                        content_type="video/mp4"
+                        songs_dir=SONGS_DIR,
+                        skins_dir=os.environ.get("SKINS_DIR", "/tmp/osu_data/Skins"),
+                        danser_bin=DANSER_BIN,
+                        s3_endpoint=endpoint,
+                        s3_access_key=access_key,
+                        s3_secret_key=secret_key,
+                        assets_commit_fn=None
                     )
-                    if os.path.exists(thumb_path):
-                        storage_client.client.fput_object(
-                            bucket_name=storage_client.bucket,
-                            object_name=thumb_key,
-                            file_path=thumb_path,
-                            content_type="image/jpeg"
-                        )
-                    if os.path.exists(log_path):
-                        storage_client.client.fput_object(
-                            bucket_name=storage_client.bucket,
-                            object_name=log_key,
-                            file_path=log_path,
-                            content_type="text/plain"
-                        )
+                    
+                    if not result_dict.get("success"):
+                        raise Exception(result_dict.get("error", "Local execution pipeline failed"))
+                        
+                    video_key = result_dict.get("video_key")
+                    thumb_key = result_dict.get("thumb_key")
+                    
+                    if "pp" in result_dict and float(result_dict["pp"]) > 0:
+                        c_dict = dict(job.config)
+                        if "replay_stats" in c_dict:
+                            c_dict["replay_stats"]["pp"] = float(result_dict["pp"])
+                        job.config = c_dict
 
                 if job is not None:
                     job.video_storage_key = video_key
