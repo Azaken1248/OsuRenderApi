@@ -87,6 +87,7 @@ services:
       - MODAL_TOKEN_ID=${MODAL_TOKEN_ID}
       - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET}
       - OSU_API_KEY=${OSU_API_KEY}
+      - API_BASE_URL=${API_BASE_URL:-http://localhost:8000}
     depends_on:
       postgres:
         condition: service_healthy
@@ -113,6 +114,7 @@ services:
       - MODAL_TOKEN_ID=${MODAL_TOKEN_ID}
       - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET}
       - OSU_API_KEY=${OSU_API_KEY}
+      - API_BASE_URL=${API_BASE_URL:-http://localhost:8000}
     depends_on:
       postgres:
         condition: service_healthy
@@ -139,6 +141,7 @@ services:
       - MODAL_TOKEN_ID=${MODAL_TOKEN_ID}
       - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET}
       - OSU_API_KEY=${OSU_API_KEY}
+      - API_BASE_URL=${API_BASE_URL:-http://localhost:8000}
     depends_on:
       postgres:
         condition: service_healthy
