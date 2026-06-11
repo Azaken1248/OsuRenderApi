@@ -40,6 +40,16 @@ async def upload_skin(request: Request, skin: UploadFile = File(...)):
             status_code=413,
             detail=f"Skin file exceeds maximum size of {settings.max_skin_size_mb}MB.",
         )
+
+    # Validate that it's actually a ZIP file
+    header = await skin.read(4)
+    if not header.startswith(b'PK'): 
+        raise HTTPException(
+            status_code=415, 
+            detail="Invalid skin file. The payload is not a valid ZIP/OSK archive."
+        )
+    await skin.seek(0)
+    
     import re
     skin_name = skin.filename[:-4]
     if not re.match(r'^[a-zA-Z0-9_ -]+$', skin_name):

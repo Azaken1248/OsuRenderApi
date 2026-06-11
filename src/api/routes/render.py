@@ -55,6 +55,20 @@ async def submit_render(
             detail="Uploaded replay file is empty.",
         )
 
+    # Structural heuristic validation for .osr using osrparse
+    from osrparse import Replay
+    replay_bytes = await replay.read()
+    try:
+        parsed_replay = Replay.from_string(replay_bytes)
+        if parsed_replay.mode.value != 0: # 0 = osu! standard
+            raise ValueError("Only osu!standard replays are supported.")
+    except Exception as e:
+        raise HTTPException(
+            status_code=415,
+            detail="Invalid replay file. The structure is corrupted or unsupported."
+        )
+    await replay.seek(0)
+    
     import re
     if not re.match(r'^[a-zA-Z0-9_ -]+$', skin):
         raise HTTPException(
