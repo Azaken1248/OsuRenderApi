@@ -18,3 +18,9 @@ celery_app.conf.update(
     enable_utc=True,
     task_track_started=True,
 )
+celery_app.conf.beat_schedule = {
+    'poll-modal-jobs-every-10-seconds': {
+        'task': 'poll_modal_status',
+        'schedule': 10.0,
+    },
+}

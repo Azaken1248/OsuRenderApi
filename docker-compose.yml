@@ -122,6 +122,32 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  worker-beat:
+    build: .
+    container_name: osurender-worker-beat
+    environment:
+      - WORKER_TYPE=beat
+      - DATABASE_URL=postgresql+asyncpg://osurender:osurender@postgres:5432/osurender
+      - DATABASE_URL_SYNC=postgresql+psycopg2://osurender:osurender@postgres:5432/osurender
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_ENDPOINT=${STORAGE_ENDPOINT:-minio:9000}
+      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:-minioadmin}
+      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY:-minioadmin}
+      - STORAGE_BUCKET_NAME=${STORAGE_BUCKET_NAME:-osurender}
+      - STORAGE_USE_SSL=${STORAGE_USE_SSL:-false}
+      - USE_MODAL_GPU=${USE_MODAL_GPU:-0}
+      - MODAL_TOKEN_ID=${MODAL_TOKEN_ID}
+      - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET}
+      - OSU_API_KEY=${OSU_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   pg_data:
     driver: local

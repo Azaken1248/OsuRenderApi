@@ -169,7 +169,7 @@ async def _process_render_job(job_id: str):
                     
                     gpu_render_fn = modal.Function.from_name("osurender-gpu-worker", "gpu_render_task")  # type: ignore[attr-defined]
                     
-                    result_dict = gpu_render_fn.remote(  # type: ignore
+                    function_call = gpu_render_fn.spawn(  # type: ignore
                         job_id=job_id,
                         set_id=set_id,
                         replay_key=job.replay_storage_key,
@@ -179,21 +179,10 @@ async def _process_render_job(job_id: str):
                         bucket_name=storage_client.bucket
                     )
                     
-                    if not isinstance(result_dict, dict):
-                        result_dict = {"success": False, "error": "Modal returned unexpected result type"}
+                    job.modal_call_id = function_call.object_id
+                    await db.commit()
                     
-                    if not result_dict.get("success"):
-                        raise Exception(result_dict.get("error", "Modal GPU render failed"))
-                        
-                    video_key = str(result_dict.get("video_key", ""))
-                    thumb_key = str(result_dict.get("thumb_key", ""))
-                    
-                    if "pp" in result_dict and float(result_dict["pp"]) > 0:
-                        c_dict = dict(job.config)
-                        if "replay_stats" in c_dict:
-                            c_dict["replay_stats"]["pp"] = float(result_dict["pp"])
-                        job.config = c_dict
-                        await db.commit()
+                    return f"Dispatched to Modal: {function_call.object_id}"
                     
                 else:
                     osz_path = os.path.join(SONGS_DIR, f"{set_id}.osz")
@@ -334,3 +323,55 @@ async def _process_render_job(job_id: str):
 )
 def process_render_job(self, job_id: str):
     asyncio.run(_process_render_job(job_id))
+
+async def _poll_modal_status():
+    from src.db.session import async_session_factory
+    from src.db.models import Job, JobStatus
+    from sqlalchemy import select
+    import modal
+    from modal.functions import FunctionCall
+
+    async with async_session_factory() as db:
+        query = select(Job).where(Job.status == JobStatus.RENDERING, Job.modal_call_id.isnot(None))
+        result = await db.execute(query)
+        active_jobs = result.scalars().all()
+
+        for job in active_jobs:
+            if not job.modal_call_id:
+                continue
+            try:
+                call = FunctionCall.from_id(job.modal_call_id)
+                try:
+                    result_dict = call.get(timeout=0)
+                    
+                    if not isinstance(result_dict, dict):
+                        result_dict = {"success": False, "error": "Modal returned unexpected result type"}
+                    
+                    if not result_dict.get("success"):
+                        job.status = JobStatus.FAILED
+                        job.error_message = result_dict.get("error", "Modal GPU render failed")
+                    else:
+                        job.video_storage_key = str(result_dict.get("video_key", ""))
+                        job.thumb_storage_key = str(result_dict.get("thumb_key", ""))
+                        
+                        if "pp" in result_dict and float(result_dict["pp"]) > 0:
+                            c_dict = dict(job.config)
+                            if "replay_stats" in c_dict:
+                                c_dict["replay_stats"]["pp"] = float(result_dict["pp"])
+                            job.config = c_dict
+                            
+                        job.status = JobStatus.COMPLETED
+                        job.progress = 100.0
+                    
+                    await db.commit()
+                except TimeoutError:
+                    continue
+            except Exception as e:
+                job.status = JobStatus.FAILED
+                job.error_message = str(e)
+                await db.commit()
+
+@celery_app.task(name="poll_modal_status")
+def poll_modal_status():
+    if os.environ.get("USE_MODAL_GPU") == "1":
+        asyncio.run(_poll_modal_status())

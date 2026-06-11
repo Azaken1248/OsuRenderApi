@@ -59,6 +59,10 @@ class Job(Base):
         nullable=True,
         index=True,
     )
+    modal_call_id: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
     video_storage_key: Mapped[str | None] = mapped_column(
         String(512),
         nullable=True,
