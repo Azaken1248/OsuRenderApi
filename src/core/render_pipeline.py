@@ -85,36 +85,52 @@ def execute_render_pipeline(
             log(f"Replay downloaded: {os.path.getsize(osr_path)} bytes")
 
             osz_path = os.path.join(songs_dir, f"{set_id}.osz")
+            beatmap_s3_key = f"beatmaps/{set_id}.osz"
+
             if not os.path.exists(osz_path):
-                log(f"Downloading beatmap set {set_id}...")
-                import httpx
-                mirrors = [
-                    f"https://api.nerinyan.moe/d/{set_id}",
-                    f"https://osu.direct/api/d/{set_id}",
-                    f"https://catboy.best/d/{set_id}",
-                ]
-                downloaded = False
-                with httpx.Client(follow_redirects=True, timeout=60.0) as client:
-                    for url in mirrors:
-                        try:
-                            log(f"  Trying: {url}")
-                            dl = client.get(url)
-                            if dl.status_code == 200 and len(dl.content) > 100:
-                                with open(osz_path, "wb") as f:
-                                    f.write(dl.content)
-                                log(f"  Downloaded {len(dl.content)} bytes from {url}")
-                                downloaded = True
-                                if assets_commit_fn: assets_commit_fn()
-                                break
-                            else:
-                                log(f"  Failed: status {dl.status_code}, size {len(dl.content)}")
-                        except Exception as e:
-                            log(f"  Error: {e}")
-                            continue
-                if not downloaded:
-                    return _upload_log_and_fail(s3, bucket_name, job_id, shared_log_path, "Failed to download beatmap from all mirrors.")
+                try:
+                    log(f"Checking S3 cache for beatmap {set_id}...")
+                    s3.head_object(Bucket=bucket_name, Key=beatmap_s3_key)
+                    log("Found in S3! Downloading...")
+                    s3.download_file(bucket_name, beatmap_s3_key, osz_path)
+                    if assets_commit_fn: assets_commit_fn()
+                except Exception:
+                    log(f"Downloading beatmap set {set_id} from mirrors...")
+                    import httpx
+                    mirrors = [
+                        f"https://api.nerinyan.moe/d/{set_id}",
+                        f"https://osu.direct/api/d/{set_id}",
+                        f"https://catboy.best/d/{set_id}",
+                    ]
+                    downloaded = False
+                    with httpx.Client(follow_redirects=True, timeout=60.0) as client:
+                        for url in mirrors:
+                            try:
+                                log(f"  Trying: {url}")
+                                dl = client.get(url)
+                                if dl.status_code == 200 and len(dl.content) > 100:
+                                    with open(osz_path, "wb") as f:
+                                        f.write(dl.content)
+                                    log(f"  Downloaded {len(dl.content)} bytes from {url}")
+                                    downloaded = True
+                                    
+                                    try:
+                                        log("  Caching beatmap to S3...")
+                                        s3.upload_file(osz_path, bucket_name, beatmap_s3_key)
+                                    except Exception as s3_err:
+                                        log(f"  Failed to cache to S3: {s3_err}")
+                                        
+                                    if assets_commit_fn: assets_commit_fn()
+                                    break
+                                else:
+                                    log(f"  Failed: status {dl.status_code}, size {len(dl.content)}")
+                            except Exception as e:
+                                log(f"  Error: {e}")
+                                continue
+                    if not downloaded:
+                        return _upload_log_and_fail(s3, bucket_name, job_id, shared_log_path, "Failed to download beatmap from all mirrors.")
             else:
-                log(f"Beatmap already cached: {osz_path}")
+                log(f"Beatmap already cached locally: {osz_path}")
 
             if skin and skin.lower() != "default":
                 skin_folder = os.path.join(skins_dir, skin)
