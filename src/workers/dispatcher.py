@@ -136,7 +136,7 @@ class OutboxDispatcher:
             try:
                 await asyncio.sleep(60)
                 logger.debug("Running safety poll")
-                await self.drain_outbox()
+                self._drain_event.set()
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -170,7 +170,7 @@ class OutboxDispatcher:
                 async with self.pool.acquire() as connection:
                     records = await connection.fetch(query)
                     if records:
-                        logger.warning(f"Recovered {len(records)} stuck outbox events to PENDING")
+                        logger.warning(f"Swept {len(records)} stuck outbox events (reverted to PENDING or marked FAILED)")
             except asyncio.CancelledError:
                 break
             except Exception as e:
