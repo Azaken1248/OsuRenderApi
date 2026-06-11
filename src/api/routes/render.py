@@ -148,12 +148,23 @@ async def submit_render(
     
     # Upload S3 file AFTER commit to prevent orphaned objects on DB transaction failure
     # If this fails, the job will eventually fail out in the worker.
-    storage_client.upload_file(
-        object_name=replay_key,
-        data=replay.file,
-        length=file_size,
-        content_type=replay.content_type or "application/octet-stream"
-    )
+    try:
+        storage_client.upload_file(
+            object_name=replay_key,
+            data=replay.file,
+            length=file_size,
+            content_type=replay.content_type or "application/octet-stream"
+        )
+    except Exception as e:
+        import logging
+        logger = logging.getLogger("osurender.api")
+        logger.exception(f"Failed to upload replay file for job {job.id}")
+        
+        job.status = JobStatus.FAILED
+        job.error_message = "Failed to store replay file in backend storage."
+        await db.commit()
+        
+        raise HTTPException(status_code=500, detail="An internal storage error occurred during upload. Please try again.")
 
     return JobCreatedResponse(
         job_id=job.id,
