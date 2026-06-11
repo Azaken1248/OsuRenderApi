@@ -40,8 +40,10 @@ async def upload_skin(request: Request, skin: UploadFile = File(...)):
             status_code=413,
             detail=f"Skin file exceeds maximum size of {settings.max_skin_size_mb}MB.",
         )
+    import re
     skin_name = skin.filename[:-4]
-    skin_key = f"skins/{skin.filename}"
+    skin_name = re.sub(r'[^a-zA-Z0-9_ -]', '', skin_name)
+    skin_key = f"skins/{skin_name}.osk"
     
     storage_client.upload_file(
         object_name=skin_key,

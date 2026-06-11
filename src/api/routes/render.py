@@ -54,9 +54,14 @@ async def submit_render(
             status_code=400,
             detail="Uploaded replay file is empty.",
         )
+
+    import re
+    # Sanitize skin parameter to prevent path traversal (allow only alphanumeric, underscore, hyphen, space)
+    safe_skin = re.sub(r'[^a-zA-Z0-9_ -]', '', skin)
+
     try:
         config = RenderConfig(
-            skin=skin,
+            skin=safe_skin,
             bg_dim=bg_dim,
             resolution=resolution,
             motion_blur=motion_blur,
