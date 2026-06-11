@@ -56,12 +56,15 @@ async def submit_render(
         )
 
     import re
-    # Sanitize skin parameter to prevent path traversal (allow only alphanumeric, underscore, hyphen, space)
-    safe_skin = re.sub(r'[^a-zA-Z0-9_ -]', '', skin)
+    if not re.match(r'^[a-zA-Z0-9_ -]+$', skin):
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid skin name. Only alphanumeric characters, underscores, hyphens, and spaces are allowed.",
+        )
 
     try:
         config = RenderConfig(
-            skin=safe_skin,
+            skin=skin,
             bg_dim=bg_dim,
             resolution=resolution,
             motion_blur=motion_blur,

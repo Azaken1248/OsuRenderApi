@@ -39,10 +39,13 @@ async def upload_skin(request: Request, skin: UploadFile = File(...)):
         raise HTTPException(
             status_code=413,
             detail=f"Skin file exceeds maximum size of {settings.max_skin_size_mb}MB.",
-        )
     import re
     skin_name = skin.filename[:-4]
-    skin_name = re.sub(r'[^a-zA-Z0-9_ -]', '', skin_name)
+    if not re.match(r'^[a-zA-Z0-9_ -]+$', skin_name):
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid skin filename. Only alphanumeric characters, underscores, hyphens, and spaces are allowed.",
+        )
     skin_key = f"skins/{skin_name}.osk"
     
     storage_client.upload_file(
