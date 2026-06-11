@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     max_skin_size_mb: int = 200
     cors_origins: list[str] = ["*"]
     api_base_url: str = Field(default="http://localhost:8000")
+    max_queued: int = Field(default=100)
+    max_rendering: int = Field(default=20)
 @lru_cache()
 def get_settings() -> Settings:
     return Settings()

@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 
 from osrparse import Replay
-from sqlalchemy import select
+from sqlalchemy import select, update
 from celery import shared_task
 
 from src.core.celery_app import celery_app
@@ -43,15 +43,22 @@ from src.db.session import get_session_factory
 async def _process_render_job(job_id: str):
     factory = get_session_factory()
     async with factory() as db:
-        result = await db.execute(select(Job).where(Job.id == uuid.UUID(job_id)))
-        job_result = result.scalar_one_or_none()
-        if not job_result:
+        # Worker Idempotency Check
+        update_stmt = (
+            update(Job)
+            .where(Job.id == uuid.UUID(job_id), Job.status == JobStatus.QUEUED)
+            .values(status=JobStatus.DOWNLOADING)
+        )
+        res = await db.execute(update_stmt)
+        if getattr(res, "rowcount", 0) == 0:
             return
             
-        job: Job = job_result
+        result = await db.execute(select(Job).where(Job.id == uuid.UUID(job_id)))
+        job: Job | None = result.scalar_one_or_none()
+        if not job:
+            return
 
         try:
-            job.status = JobStatus.DOWNLOADING
             await db.commit()
 
             with tempfile.TemporaryDirectory() as tmpdir:
@@ -233,6 +240,10 @@ async def _process_render_job(job_id: str):
 
         except Exception as e:
             if 'job' in locals() and job is not None:
+                import logging
+                logger = logging.getLogger("osurender.worker")
+                logger.exception(f"Render failed for job {job_id}")
+                
                 job.status = JobStatus.FAILED
                 job.error_message = str(e)
                 await db.commit()
@@ -255,17 +266,41 @@ async def _reap_zombie_jobs():
     from datetime import datetime, timezone, timedelta
     
     timeout_threshold = datetime.now(timezone.utc) - timedelta(minutes=15)
+    queued_threshold = datetime.now(timezone.utc) - timedelta(minutes=5)
     
     factory = get_session_factory()
     async with factory() as db:
-        query = update(Job).where(
+        # Reap completely stuck jobs
+        query1 = update(Job).where(
             Job.status.in_([JobStatus.RENDERING, JobStatus.DOWNLOADING]),
             Job.updated_at < timeout_threshold
         ).values(
             status=JobStatus.FAILED,
             error_message="Job timed out and was reaped by the system."
         )
-        await db.execute(query)
+        await db.execute(query1)
+        
+        # Bounded Queue Recovery Sweeper
+        # Find queued jobs older than 5 mins, increment retry_count
+        query2 = update(Job).where(
+            Job.status == JobStatus.QUEUED,
+            Job.created_at < queued_threshold,
+            Job.retry_count <= 3
+        ).values(
+            retry_count=Job.retry_count + 1
+        )
+        await db.execute(query2)
+        
+        # Fail queued jobs that exceeded retries
+        query3 = update(Job).where(
+            Job.status == JobStatus.QUEUED,
+            Job.retry_count > 3
+        ).values(
+            status=JobStatus.FAILED,
+            error_message="Job failed to dispatch after 3 retries."
+        )
+        await db.execute(query3)
+        
         await db.commit()
 
 @celery_app.task(name="reap_zombie_jobs")

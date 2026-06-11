@@ -12,6 +12,9 @@ if [ "$WORKER_TYPE" = "celery" ]; then
 elif [ "$WORKER_TYPE" = "beat" ]; then
     echo "Starting Celery beat..."
     celery -A src.core.celery_app.celery_app beat --loglevel=info
+elif [ "$WORKER_TYPE" = "dispatcher" ]; then
+    echo "Starting Outbox Dispatcher..."
+    exec python -m src.workers.dispatcher
 else
     echo "Starting FastAPI server..."
     exec uvicorn src.api.app:create_app --host ${APP_HOST:-0.0.0.0} --port ${APP_PORT:-8000} --factory --proxy-headers

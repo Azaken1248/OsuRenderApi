@@ -5,8 +5,10 @@ from src.api.schemas import RenderConfig, JobCreatedResponse
 from src.core.config import get_settings
 from src.core.limiter import limiter
 from src.core.storage import storage_client
-from src.db.models import Job, JobStatus
+from src.db.models import Job, JobStatus, OutboxEvent, OutboxStatus
 from src.db.session import get_db
+import zlib
+from sqlalchemy import select, func, text
 router = APIRouter()
 @router.post(
     "/render",
@@ -76,10 +78,23 @@ async def submit_render(
             detail="Invalid skin name. Only alphanumeric characters, underscores, hyphens, and spaces are allowed.",
         )
 
-    client_ip = request.client.host if request.client else "unknown"
+    # Global Queue Circuit Breakers
+    global_queued_query = select(func.count()).select_from(Job).where(Job.status == JobStatus.QUEUED)
+    global_rendering_query = select(func.count()).select_from(Job).where(Job.status == JobStatus.RENDERING)
     
-    # Concurrency check: max 2 active jobs per IP
-    from sqlalchemy import select, func
+    queued_count = await db.scalar(global_queued_query)
+    rendering_count = await db.scalar(global_rendering_query)
+    
+    if queued_count and queued_count >= settings.max_queued:
+        raise HTTPException(status_code=503, detail="The render queue is currently full. Please try again later.")
+    if rendering_count and rendering_count >= settings.max_rendering:
+        raise HTTPException(status_code=503, detail="The render infrastructure is at maximum capacity. Please try again later.")
+
+    # Concurrency check with Advisory Transaction Lock
+    client_ip = request.client.host if request.client else "unknown"
+    ip_lock_id = zlib.crc32(client_ip.encode())
+    await db.execute(text("SELECT pg_advisory_xact_lock(:id)"), {"id": ip_lock_id})
+    
     active_jobs_query = select(func.count()).select_from(Job).where(
         Job.client_ip == client_ip,
         Job.status.in_([JobStatus.QUEUED, JobStatus.RENDERING, JobStatus.DOWNLOADING])
@@ -108,7 +123,7 @@ async def submit_render(
     except Exception as e:
         raise HTTPException(status_code=422, detail=str(e))
     job_id = uuid.uuid4()
-    replay_key = f"replays/{job_id}/{replay.filename}"
+    replay_key = f"replays/{job_id}/replay.osr"
     
     storage_client.upload_file(
         object_name=replay_key,
@@ -126,11 +141,14 @@ async def submit_render(
         client_ip=client_ip,
     )
     db.add(job)
-    await db.flush() 
+    outbox_event = OutboxEvent(
+        event_type="render_job_created",
+        payload={"job_id": str(job.id)},
+        status=OutboxStatus.PENDING
+    )
+    db.add(outbox_event)
+    await db.commit()
     await db.refresh(job)
-
-    from src.workers.render_worker import process_render_job
-    process_render_job.delay(str(job.id))
 
     return JobCreatedResponse(
         job_id=job.id,
