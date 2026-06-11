@@ -38,14 +38,10 @@ async def fetch_beatmap_with_backoff(client: httpx.AsyncClient, h: str, max_retr
             await asyncio.sleep(2 ** attempt)
     return None
 
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from sqlalchemy.pool import NullPool
+from src.db.session import async_session_factory
 
 async def _process_render_job(job_id: str):
-    engine = create_async_engine(settings.database_url, poolclass=NullPool)
-    task_session_factory = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
-    
-    async with task_session_factory() as db:
+    async with async_session_factory() as db:
         result = await db.execute(select(Job).where(Job.id == uuid.UUID(job_id)))
         job_result = result.scalar_one_or_none()
         if not job_result:
