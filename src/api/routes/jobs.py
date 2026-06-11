@@ -66,3 +66,48 @@ async def list_jobs(
         total=total,
         jobs=[_job_to_response(j) for j in jobs],
     )
+
+from pydantic import BaseModel
+from src.db.models import JobStatus
+
+class WebhookPayload(BaseModel):
+    success: bool
+    video_key: str = ""
+    thumb_key: str = ""
+    log_key: str = ""
+    error: str = ""
+    pp: float = 0.0
+
+@router.post(
+    "/jobs/{job_id}/webhook",
+    summary="Modal Webhook Callback",
+    description="Endpoint for Modal to push completion results natively.",
+)
+async def job_webhook(
+    job_id: uuid.UUID,
+    payload: WebhookPayload,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Job).where(Job.id == job_id))
+    job = result.scalar_one_or_none()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if not payload.success:
+        job.status = JobStatus.FAILED
+        job.error_message = payload.error
+    else:
+        job.status = JobStatus.COMPLETED
+        job.progress = 100.0
+        job.video_storage_key = payload.video_key
+        job.thumb_storage_key = payload.thumb_key
+
+        if payload.pp > 0:
+            c_dict = dict(job.config)
+            if "replay_stats" not in c_dict:
+                c_dict["replay_stats"] = {}
+            c_dict["replay_stats"]["pp"] = payload.pp
+            job.config = c_dict
+
+    await db.commit()
+    return {"status": "ok"}

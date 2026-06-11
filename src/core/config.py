@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     max_replay_size_mb: int = 50
     max_skin_size_mb: int = 200
     cors_origins: list[str] = ["*"]
+    api_base_url: str = Field(default="http://localhost:8000")
 @lru_cache()
 def get_settings() -> Settings:
     return Settings()

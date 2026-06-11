@@ -38,10 +38,11 @@ async def fetch_beatmap_with_backoff(client: httpx.AsyncClient, h: str, max_retr
             await asyncio.sleep(2 ** attempt)
     return None
 
-from src.db.session import async_session_factory
+from src.db.session import get_session_factory
 
 async def _process_render_job(job_id: str):
-    async with async_session_factory() as db:
+    factory = get_session_factory()
+    async with factory() as db:
         result = await db.execute(select(Job).where(Job.id == uuid.UUID(job_id)))
         job_result = result.scalar_one_or_none()
         if not job_result:
@@ -172,7 +173,8 @@ async def _process_render_job(job_id: str):
                         skin=job.config.get("skin", "Default"),
                         patch=patch,
                         target_name=target_name,
-                        bucket_name=storage_client.bucket
+                        bucket_name=storage_client.bucket,
+                        webhook_url=f"{settings.api_base_url}/v1/jobs/{job_id}/webhook"
                     )
                     
                     job.modal_call_id = function_call.object_id
@@ -193,8 +195,7 @@ async def _process_render_job(job_id: str):
                     access_key = os.environ.get("STORAGE_ACCESS_KEY", "minioadmin")
                     secret_key = os.environ.get("STORAGE_SECRET_KEY", "minioadmin")
                     
-                    result_dict = await asyncio.to_thread(
-                        execute_render_pipeline,
+                    result_dict = await execute_render_pipeline(
                         job_id=job_id,
                         set_id=set_id,
                         replay_key=job.replay_storage_key,
@@ -246,54 +247,27 @@ async def _process_render_job(job_id: str):
 def process_render_job(self, job_id: str):
     asyncio.run(_process_render_job(job_id))
 
-async def _poll_modal_status():
-    from src.db.session import async_session_factory
+
+async def _reap_zombie_jobs():
+    from src.db.session import get_session_factory
     from src.db.models import Job, JobStatus
-    from sqlalchemy import select
-    import modal
-    from modal.functions import FunctionCall
+    from sqlalchemy import select, update
+    from datetime import datetime, timezone, timedelta
+    
+    timeout_threshold = datetime.now(timezone.utc) - timedelta(minutes=15)
+    
+    factory = get_session_factory()
+    async with factory() as db:
+        query = update(Job).where(
+            Job.status.in_([JobStatus.RENDERING, JobStatus.DOWNLOADING]),
+            Job.updated_at < timeout_threshold
+        ).values(
+            status=JobStatus.FAILED,
+            error_message="Job timed out and was reaped by the system."
+        )
+        await db.execute(query)
+        await db.commit()
 
-    async with async_session_factory() as db:
-        query = select(Job).where(Job.status == JobStatus.RENDERING, Job.modal_call_id.isnot(None))
-        result = await db.execute(query)
-        active_jobs = result.scalars().all()
-
-        for job in active_jobs:
-            if not job.modal_call_id:
-                continue
-            try:
-                call = FunctionCall.from_id(job.modal_call_id)
-                try:
-                    result_dict = call.get(timeout=0)
-                    
-                    if not isinstance(result_dict, dict):
-                        result_dict = {"success": False, "error": "Modal returned unexpected result type"}
-                    
-                    if not result_dict.get("success"):
-                        job.status = JobStatus.FAILED
-                        job.error_message = result_dict.get("error", "Modal GPU render failed")
-                    else:
-                        job.video_storage_key = str(result_dict.get("video_key", ""))
-                        job.thumb_storage_key = str(result_dict.get("thumb_key", ""))
-                        
-                        if "pp" in result_dict and float(result_dict["pp"]) > 0:
-                            c_dict = dict(job.config)
-                            if "replay_stats" in c_dict:
-                                c_dict["replay_stats"]["pp"] = float(result_dict["pp"])
-                            job.config = c_dict
-                            
-                        job.status = JobStatus.COMPLETED
-                        job.progress = 100.0
-                    
-                    await db.commit()
-                except TimeoutError:
-                    continue
-            except Exception as e:
-                job.status = JobStatus.FAILED
-                job.error_message = str(e)
-                await db.commit()
-
-@celery_app.task(name="poll_modal_status")
-def poll_modal_status():
-    if os.environ.get("USE_MODAL_GPU") == "1":
-        asyncio.run(_poll_modal_status())
+@celery_app.task(name="reap_zombie_jobs")
+def reap_zombie_jobs():
+    asyncio.run(_reap_zombie_jobs())

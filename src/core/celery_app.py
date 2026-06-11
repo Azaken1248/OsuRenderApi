@@ -19,11 +19,12 @@ celery_app.conf.update(
     task_track_started=True,
 )
 celery_app.conf.beat_schedule = {
-    'poll-modal-jobs-every-10-seconds': {
-        'task': 'poll_modal_status',
-        'schedule': 10.0,
+    'reap-zombie-jobs-every-minute': {
+        'task': 'reap_zombie_jobs',
+        'schedule': 60.0,
     },
 }
+
 
 from celery.signals import worker_process_init
 
@@ -34,5 +35,5 @@ def init_worker_db_pool(**kwargs):
     We need to dispose of the global SQLAlchemy engine's connections
     so that the fork doesn't inherit dirty/shared DB connections.
     """
-    from src.db.session import engine
-    engine.sync_engine.dispose()
+    from src.db.session import get_engine
+    get_engine().sync_engine.dispose()

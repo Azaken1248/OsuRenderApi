@@ -8,7 +8,7 @@ image = (
         "libgl1-mesa-dri", "libgbm1", "libgtk-3-0", "libasound2",
         "libxrender1", "libxtst6", "libxi6", "libxrandr2", "libxcursor1", "libxinerama1"
     )
-    .pip_install("boto3", "httpx")
+    .pip_install("boto3", "aioboto3", "httpx")
     .run_commands(
         "wget https://github.com/Wieku/danser-go/releases/download/0.11.0/danser-0.11.0-linux.zip",
         "unzip danser-0.11.0-linux.zip -d /usr/local/bin/danser",
@@ -27,7 +27,7 @@ assets_vol = modal.Volume.from_name("osu-assets", create_if_missing=True)
     timeout=660,
     secrets=[modal.Secret.from_name("osurender-secrets")]
 )
-def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch: str, target_name: str, bucket_name: str) -> dict:
+async def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch: str, target_name: str, bucket_name: str, webhook_url: str | None = None) -> dict:
     """
     Fully self-contained GPU render function executing the DRY render pipeline.
     """
@@ -40,7 +40,7 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
     def commit_assets():
         assets_vol.commit()
 
-    return execute_render_pipeline(
+    result = await execute_render_pipeline(
         job_id=job_id,
         set_id=set_id,
         replay_key=replay_key,
@@ -56,3 +56,22 @@ def gpu_render_task(job_id: str, set_id: str, replay_key: str, skin: str, patch:
         s3_secret_key=secret_key,
         assets_commit_fn=commit_assets
     )
+
+    if webhook_url:
+        import httpx
+        try:
+            # We don't want the modal task to fail if webhook fails, so we swallow exceptions.
+            payload = {
+                "success": result.get("success", False),
+                "video_key": result.get("video_key", ""),
+                "thumb_key": result.get("thumb_key", ""),
+                "log_key": result.get("log_key", ""),
+                "error": result.get("error", ""),
+                "pp": result.get("pp", 0.0)
+            }
+            async with httpx.AsyncClient() as client:
+                await client.post(webhook_url, json=payload, timeout=15.0)
+        except Exception as e:
+            print(f"Webhook error: {e}")
+
+    return result
