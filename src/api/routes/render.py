@@ -80,7 +80,9 @@ async def submit_render(
 
     # Global Queue Circuit Breakers
     global_queued_query = select(func.count()).select_from(Job).where(Job.status == JobStatus.QUEUED)
-    global_rendering_query = select(func.count()).select_from(Job).where(Job.status == JobStatus.RENDERING)
+    global_rendering_query = select(func.count()).select_from(Job).where(
+        Job.status.in_([JobStatus.RENDERING, JobStatus.DOWNLOADING])
+    )
     
     queued_count = await db.scalar(global_queued_query)
     rendering_count = await db.scalar(global_rendering_query)
@@ -125,13 +127,6 @@ async def submit_render(
     job_id = uuid.uuid4()
     replay_key = f"replays/{job_id}/replay.osr"
     
-    storage_client.upload_file(
-        object_name=replay_key,
-        data=replay.file,
-        length=file_size,
-        content_type=replay.content_type or "application/octet-stream"
-    )
-
     job = Job(
         id=job_id,
         status=JobStatus.QUEUED,
@@ -140,6 +135,7 @@ async def submit_render(
         config=config.model_dump(),
         client_ip=client_ip,
     )
+    
     db.add(job)
     outbox_event = OutboxEvent(
         event_type="render_job_created",
@@ -149,6 +145,15 @@ async def submit_render(
     db.add(outbox_event)
     await db.commit()
     await db.refresh(job)
+    
+    # Upload S3 file AFTER commit to prevent orphaned objects on DB transaction failure
+    # If this fails, the job will eventually fail out in the worker.
+    storage_client.upload_file(
+        object_name=replay_key,
+        data=replay.file,
+        length=file_size,
+        content_type=replay.content_type or "application/octet-stream"
+    )
 
     return JobCreatedResponse(
         job_id=job.id,
