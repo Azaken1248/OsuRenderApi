@@ -39,6 +39,7 @@ async def upload_skin(request: Request, skin: UploadFile = File(...)):
         raise HTTPException(
             status_code=413,
             detail=f"Skin file exceeds maximum size of {settings.max_skin_size_mb}MB.",
+        )
     import re
     skin_name = skin.filename[:-4]
     if not re.match(r'^[a-zA-Z0-9_ -]+$', skin_name):
