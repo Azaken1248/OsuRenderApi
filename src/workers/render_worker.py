@@ -82,6 +82,23 @@ async def _process_render_job(job_id: str):
                         job.beatmap_id = int(b_id)
                         job.map_title = f"{beatmap_data.get('artist')} - {beatmap_data.get('title')}"
                         
+                        # Fetch PP from osu API if possible
+                        pp_val = 0.0
+                        try:
+                            username = getattr(replay, "username", "")
+                            if username:
+                                scores_resp = await client.get(f"https://osu.ppy.sh/api/get_scores?k={settings.osu_api_key}&b={b_id}&u={username}")
+                                if scores_resp.status_code == 200:
+                                    scores_data = scores_resp.json()
+                                    for score in scores_data:
+                                        if int(score.get("maxcombo", 0)) == replay.max_combo and int(score.get("count300", 0)) == replay.count_300:
+                                            pp_val = float(score.get("pp") or 0)
+                                            break
+                                    if pp_val == 0 and len(scores_data) > 0:
+                                        pp_val = float(scores_data[0].get("pp") or 0)
+                        except Exception:
+                            pass
+
                         # Store stats
                         c_dict = dict(job.config)
                         c_dict["replay_stats"] = {
@@ -91,8 +108,7 @@ async def _process_render_job(job_id: str):
                             "misses": replay.count_miss,
                             "max_combo": replay.max_combo,
                             "star_rating": beatmap_data.get("difficultyrating"),
-                            # Not trivial to get PP precisely without a heavy library, but we can set 0
-                            "pp": 0 
+                            "pp": pp_val 
                         }
                         job.config = c_dict
                         
@@ -172,7 +188,7 @@ async def _process_render_job(job_id: str):
                     video_key = str(result_dict.get("video_key", ""))
                     thumb_key = str(result_dict.get("thumb_key", ""))
                     
-                    if "pp" in result_dict:
+                    if "pp" in result_dict and result_dict["pp"] > 0:
                         c_dict = dict(job.config)
                         if "replay_stats" in c_dict:
                             c_dict["replay_stats"]["pp"] = result_dict["pp"]
