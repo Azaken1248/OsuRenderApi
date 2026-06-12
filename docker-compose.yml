@@ -109,6 +109,7 @@ services:
     cpus: 1
     environment:
       - WORKER_TYPE=celery
+      - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus_multiproc
       - DATABASE_URL=postgresql+asyncpg://osurender:osurender@postgres:5432/osurender
       - DATABASE_URL_SYNC=postgresql+psycopg2://osurender:osurender@postgres:5432/osurender
       - REDIS_URL=redis://redis:6379/0

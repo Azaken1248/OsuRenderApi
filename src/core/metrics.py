@@ -7,6 +7,12 @@ queue_depth = Gauge(
     ["status"]
 )
 
+# Outbox Pending
+outbox_pending_events = Gauge(
+    "outbox_pending_events",
+    "Number of pending events in the outbox queue"
+)
+
 # Render Duration
 render_duration_seconds = Histogram(
     "render_duration_seconds",
@@ -29,7 +35,8 @@ outbox_dispatch_total = Counter(
 # Dispatcher Reconnects
 listener_reconnects_total = Counter(
     "listener_reconnects_total",
-    "Total number of times the dispatcher had to reconnect to postgres or redis"
+    "Total number of times the dispatcher had to reconnect to postgres or redis",
+    ["reason"]
 )
 
 # Stuck Processing Recoveries

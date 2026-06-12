@@ -8,7 +8,11 @@ alembic upgrade head
 # Start the application based on the WORKER_TYPE environment variable
 if [ "$WORKER_TYPE" = "celery" ]; then
     echo "Starting Celery worker..."
-    celery -A src.core.celery_app.celery_app worker -P threads --loglevel=info -c 2
+    if [ -n "$PROMETHEUS_MULTIPROC_DIR" ]; then
+        rm -rf "$PROMETHEUS_MULTIPROC_DIR"
+        mkdir -p "$PROMETHEUS_MULTIPROC_DIR"
+    fi
+    celery -A src.core.celery_app.celery_app worker -P prefork --loglevel=info -c 2
 elif [ "$WORKER_TYPE" = "beat" ]; then
     echo "Starting Celery beat..."
     celery -A src.core.celery_app.celery_app beat --loglevel=info

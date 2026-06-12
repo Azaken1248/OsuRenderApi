@@ -19,13 +19,17 @@ async def metrics_poll_loop():
     while True:
         try:
             async with AsyncSessionLocal() as db:
-                queued = await db.scalar(text("SELECT COUNT(*) FROM jobs WHERE status = 'queued'"))
-                rendering = await db.scalar(text("SELECT COUNT(*) FROM jobs WHERE status = 'rendering'"))
-                downloading = await db.scalar(text("SELECT COUNT(*) FROM jobs WHERE status = 'downloading'"))
+                queued = await db.scalar(text("SELECT count(1) FROM (SELECT 1 FROM jobs WHERE status = 'queued' LIMIT 10000) as t"))
+                rendering = await db.scalar(text("SELECT count(1) FROM (SELECT 1 FROM jobs WHERE status = 'rendering' LIMIT 10000) as t"))
+                downloading = await db.scalar(text("SELECT count(1) FROM (SELECT 1 FROM jobs WHERE status = 'downloading' LIMIT 10000) as t"))
+                outbox_pending = await db.scalar(text("SELECT count(1) FROM (SELECT 1 FROM outbox_events WHERE status = 'PENDING' LIMIT 10000) as t"))
                 
                 if queued is not None: queue_depth.labels(status="queued").set(queued)
                 if rendering is not None: queue_depth.labels(status="rendering").set(rendering)
                 if downloading is not None: queue_depth.labels(status="downloading").set(downloading)
+                
+                from src.core.metrics import outbox_pending_events
+                if outbox_pending is not None: outbox_pending_events.set(outbox_pending)
         except Exception as e:
             import logging
             logging.error(f"Error polling metrics: {e}")

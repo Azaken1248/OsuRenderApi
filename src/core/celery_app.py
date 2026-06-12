@@ -19,14 +19,16 @@ celery_app.conf.update(
     task_track_started=True,
 )
 
-from celery.signals import worker_ready
+from celery.signals import celeryd_init
 
-@worker_ready.connect
+@celeryd_init.connect
 def start_metrics_server(**kwargs):
-    from prometheus_client import start_http_server
     import os
     if os.environ.get("WORKER_TYPE") == "celery":
-        start_http_server(8729)
+        from prometheus_client import CollectorRegistry, start_http_server, multiprocess
+        registry = CollectorRegistry()
+        multiprocess.MultiProcessCollector(registry)
+        start_http_server(8729, registry=registry)
 celery_app.conf.beat_schedule = {
     'reap-zombie-jobs-every-minute': {
         'task': 'reap_zombie_jobs',
@@ -46,3 +48,12 @@ def init_worker_db_pool(**kwargs):
     """
     from src.db.session import get_engine
     get_engine().sync_engine.dispose()
+
+from celery.signals import worker_process_shutdown
+
+@worker_process_shutdown.connect
+def clean_up_multiprocess_metrics(pid, **kwargs):
+    import os
+    if os.environ.get("WORKER_TYPE") == "celery" and "PROMETHEUS_MULTIPROC_DIR" in os.environ:
+        from prometheus_client import multiprocess
+        multiprocess.mark_process_dead(pid)

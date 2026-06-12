@@ -190,6 +190,7 @@ class OutboxDispatcher:
                 logger.error(f"Error in stuck processing sweeper: {e}")
 
     async def run(self):
+        reconnect_reason = "startup"
         while True:
             try:
                 await self.connect()
@@ -208,11 +209,13 @@ class OutboxDispatcher:
                         await self.conn.execute("SELECT 1")
                     except Exception as e:
                         logger.warning(f"Heartbeat failed: {e}")
+                        reconnect_reason = "listener"
                         break
                     await asyncio.sleep(30)
                     
             except Exception as e:
                 logger.error(f"Dispatcher connection lost: {e}")
+                reconnect_reason = "postgres"
             finally:
                 if self._poll_task:
                     self._poll_task.cancel()
@@ -226,10 +229,11 @@ class OutboxDispatcher:
                     
             # Reconnect jitter
             from src.core.metrics import listener_reconnects_total
-            listener_reconnects_total.inc()
+            listener_reconnects_total.labels(reason=reconnect_reason).inc()
             jitter = random.uniform(3, 10)
             logger.info(f"Reconnecting dispatcher in {jitter:.2f} seconds...")
             await asyncio.sleep(jitter)
+            reconnect_reason = "unknown"
 
 if __name__ == "__main__":
     import os

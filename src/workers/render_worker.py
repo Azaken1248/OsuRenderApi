@@ -65,8 +65,10 @@ async def _process_render_job(job_id: str):
 
         try:
             await db.commit()
+            current_phase = "init"
 
             with tempfile.TemporaryDirectory() as tmpdir:
+                current_phase = "download"
                 osr_path = os.path.join(tmpdir, "replay.osr")
                 storage_client.client.fget_object(
                     bucket_name=storage_client.bucket,
@@ -81,6 +83,7 @@ async def _process_render_job(job_id: str):
                 except Exception:
                     h = "unknown"
 
+                current_phase = "osu_api"
                 async with httpx.AsyncClient() as client:
                     if settings.osu_api_key and h != "unknown" and replay is not None:
                         beatmap_data = await fetch_beatmap_with_backoff(client, h)
@@ -173,6 +176,7 @@ async def _process_render_job(job_id: str):
                     }
                 })
 
+                current_phase = "render"
                 if os.environ.get("USE_MODAL_GPU") == "1":
                     import modal
                     
@@ -244,7 +248,7 @@ async def _process_render_job(job_id: str):
                     await db.commit()
 
         except Exception as e:
-            render_failures_total.labels(reason="render_error").inc()
+            render_failures_total.labels(reason=locals().get("current_phase", "unknown")).inc()
             if 'job' in locals() and job is not None:
                 import logging
                 logger = logging.getLogger("osurender.worker")
