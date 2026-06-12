@@ -14,7 +14,8 @@ from sqlalchemy import text
 from src.core.metrics import queue_depth
 
 async def metrics_poll_loop():
-    from src.db.session import AsyncSessionLocal
+    from src.db.session import get_session_factory
+    AsyncSessionLocal = get_session_factory()
     while True:
         try:
             async with AsyncSessionLocal() as db:
@@ -44,7 +45,8 @@ async def lifespan(app: FastAPI):
     
     yield
     metrics_task.cancel()
-    from src.db.session import engine
+    from src.db.session import get_engine
+    engine = get_engine()
     await engine.dispose()
     print("[shutdown] Database connections closed.")
 def create_app() -> FastAPI:
