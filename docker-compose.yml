@@ -2,6 +2,7 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: osurender-postgres
+    command: -c max_connections=200
     environment:
       POSTGRES_USER: osurender
       POSTGRES_PASSWORD: osurender

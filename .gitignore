@@ -33,3 +33,7 @@ thing.txt
 output.txt
 *.log
 pyrightconfig.json
+
+# --- Binary assets ---
+*.osr
+danser-*.zip

@@ -93,7 +93,8 @@ async def submit_render(
         raise HTTPException(status_code=503, detail="The render infrastructure is at maximum capacity. Please try again later.")
 
     # Concurrency check with Advisory Transaction Lock
-    client_ip = request.client.host if request.client else "unknown"
+    forwarded = request.headers.get("x-forwarded-for")
+    client_ip = forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
     ip_lock_id = zlib.crc32(client_ip.encode())
     await db.execute(text("SELECT pg_advisory_xact_lock(:id)"), {"id": ip_lock_id})
     

@@ -10,7 +10,13 @@ from src.core.config import get_settings
 
 settings = get_settings()
 
+def get_real_ip(request):
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return get_remote_address(request)
+
 limiter = Limiter(
-    key_func=get_remote_address,
+    key_func=get_real_ip,
     storage_uri=settings.redis_url
 )
