@@ -39,24 +39,29 @@ async def fetch_beatmap_with_backoff(client: httpx.AsyncClient, h: str, max_retr
     return None
 
 from src.db.session import get_session_factory
+from src.core.metrics import active_render_workers, render_duration_seconds, render_failures_total
+import time
 
 async def _process_render_job(job_id: str):
-    factory = get_session_factory()
-    async with factory() as db:
-        # Worker Idempotency Check
-        update_stmt = (
-            update(Job)
-            .where(Job.id == uuid.UUID(job_id), Job.status == JobStatus.QUEUED)
-            .values(status=JobStatus.DOWNLOADING)
-        )
-        res = await db.execute(update_stmt)
-        if getattr(res, "rowcount", 0) == 0:
-            return "aborted"
-            
-        result = await db.execute(select(Job).where(Job.id == uuid.UUID(job_id)))
-        job: Job | None = result.scalar_one_or_none()
-        if not job:
-            return "aborted"
+    active_render_workers.inc()
+    start_time = time.monotonic()
+    try:
+        factory = get_session_factory()
+        async with factory() as db:
+            # Worker Idempotency Check
+            update_stmt = (
+                update(Job)
+                .where(Job.id == uuid.UUID(job_id), Job.status == JobStatus.QUEUED)
+                .values(status=JobStatus.DOWNLOADING)
+            )
+            res = await db.execute(update_stmt)
+            if getattr(res, "rowcount", 0) == 0:
+                return "aborted"
+                
+            result = await db.execute(select(Job).where(Job.id == uuid.UUID(job_id)))
+            job: Job | None = result.scalar_one_or_none()
+            if not job:
+                return "aborted"
 
         try:
             await db.commit()
@@ -239,6 +244,7 @@ async def _process_render_job(job_id: str):
                     await db.commit()
 
         except Exception as e:
+            render_failures_total.labels(reason="render_error").inc()
             if 'job' in locals() and job is not None:
                 import logging
                 logger = logging.getLogger("osurender.worker")
@@ -247,6 +253,9 @@ async def _process_render_job(job_id: str):
                 job.status = JobStatus.FAILED
                 job.error_message = str(e)
                 await db.commit()
+    finally:
+        active_render_workers.dec()
+        render_duration_seconds.observe(time.monotonic() - start_time)
 
 @celery_app.task(
     name="process_render_job", 

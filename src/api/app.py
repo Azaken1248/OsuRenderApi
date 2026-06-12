@@ -9,6 +9,28 @@ from src.core.config import get_settings
 from src.core.limiter import limiter
 from src.api.routes import health, jobs, render, skins, artifacts, view, legacy
 
+import asyncio
+from sqlalchemy import text
+from src.core.metrics import queue_depth
+
+async def metrics_poll_loop():
+    from src.db.session import AsyncSessionLocal
+    while True:
+        try:
+            async with AsyncSessionLocal() as db:
+                queued = await db.scalar(text("SELECT COUNT(*) FROM jobs WHERE status = 'queued'"))
+                rendering = await db.scalar(text("SELECT COUNT(*) FROM jobs WHERE status = 'rendering'"))
+                downloading = await db.scalar(text("SELECT COUNT(*) FROM jobs WHERE status = 'downloading'"))
+                
+                if queued is not None: queue_depth.labels(status="queued").set(queued)
+                if rendering is not None: queue_depth.labels(status="rendering").set(rendering)
+                if downloading is not None: queue_depth.labels(status="downloading").set(downloading)
+        except Exception as e:
+            import logging
+            logging.error(f"Error polling metrics: {e}")
+            
+        await asyncio.sleep(15)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
@@ -17,7 +39,11 @@ async def lifespan(app: FastAPI):
     print(f"[startup] Database: {settings.database_url.split('@')[-1]}")
     print(f"[startup] Redis: {settings.redis_url}")
     print(f"[startup] Storage: {settings.storage_endpoint}/{settings.storage_bucket_name}")
+    
+    metrics_task = asyncio.create_task(metrics_poll_loop())
+    
     yield
+    metrics_task.cancel()
     from src.db.session import engine
     await engine.dispose()
     print("[shutdown] Database connections closed.")
@@ -59,4 +85,8 @@ def create_app() -> FastAPI:
     app.include_router(jobs.router, prefix="/v1", tags=["Jobs"])
     app.include_router(skins.router, prefix="/v1", tags=["Skins"])
     app.include_router(artifacts.router, prefix="/v1/artifacts", tags=["Artifacts"])
+
+    from prometheus_fastapi_instrumentator import Instrumentator
+    Instrumentator().instrument(app).expose(app)
+
     return app

@@ -8,7 +8,7 @@ alembic upgrade head
 # Start the application based on the WORKER_TYPE environment variable
 if [ "$WORKER_TYPE" = "celery" ]; then
     echo "Starting Celery worker..."
-    celery -A src.core.celery_app.celery_app worker --loglevel=info -c 2
+    celery -A src.core.celery_app.celery_app worker -P threads --loglevel=info -c 2
 elif [ "$WORKER_TYPE" = "beat" ]; then
     echo "Starting Celery beat..."
     celery -A src.core.celery_app.celery_app beat --loglevel=info

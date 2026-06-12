@@ -7,6 +7,7 @@ import asyncpg
 
 from src.core.config import get_settings
 from src.db.models import OutboxStatus
+import src.core.metrics
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -107,6 +108,8 @@ class OutboxDispatcher:
                                 "UPDATE outbox_events SET status = 'PROCESSED', processed_at = NOW() WHERE id = $1", 
                                 event_id
                             )
+                            from src.core.metrics import outbox_dispatch_total
+                            outbox_dispatch_total.inc()
                             logger.info(f"Dispatched job {job_id} successfully")
                     except Exception as e:
                         logger.error(f"Failed to dispatch event {event_id}: {e}", exc_info=True)
@@ -165,6 +168,8 @@ class OutboxDispatcher:
             async with self.pool.acquire() as connection:
                 records = await connection.fetch(query)
                 if records:
+                    from src.core.metrics import stuck_processing_events_total
+                    stuck_processing_events_total.inc(len(records))
                     logger.warning(f"Swept {len(records)} stuck outbox events (reverted to PENDING or marked FAILED)")
                 return len(records)
         except Exception as e:
@@ -220,11 +225,18 @@ class OutboxDispatcher:
                     await self.pool.close()
                     
             # Reconnect jitter
+            from src.core.metrics import listener_reconnects_total
+            listener_reconnects_total.inc()
             jitter = random.uniform(3, 10)
             logger.info(f"Reconnecting dispatcher in {jitter:.2f} seconds...")
             await asyncio.sleep(jitter)
 
 if __name__ == "__main__":
+    import os
+    from prometheus_client import start_http_server
+    # Start metrics server on port 8728
+    start_http_server(8728)
+    
     dispatcher = OutboxDispatcher()
     try:
         asyncio.run(dispatcher.run())

@@ -103,6 +103,8 @@ services:
   worker:
     build: .
     container_name: osurender-worker
+    ports:
+      - "8729:8729"
     mem_limit: 1g
     cpus: 1
     environment:
@@ -159,6 +161,8 @@ services:
   dispatcher:
     build: .
     container_name: osurender-dispatcher
+    ports:
+      - "8728:8728"
     mem_limit: 1g
     cpus: 1
     environment:

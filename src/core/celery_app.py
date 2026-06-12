@@ -18,6 +18,15 @@ celery_app.conf.update(
     enable_utc=True,
     task_track_started=True,
 )
+
+from celery.signals import worker_ready
+
+@worker_ready.connect
+def start_metrics_server(**kwargs):
+    from prometheus_client import start_http_server
+    import os
+    if os.environ.get("WORKER_TYPE") == "celery":
+        start_http_server(8729)
 celery_app.conf.beat_schedule = {
     'reap-zombie-jobs-every-minute': {
         'task': 'reap_zombie_jobs',
