@@ -3,6 +3,8 @@ from fastapi.responses import RedirectResponse, Response
 from src.core.storage import storage_client
 
 router = APIRouter()
+
+
 @router.get(
     "/{key:path}",
     summary="Download or Stream Artifact",
@@ -10,7 +12,7 @@ router = APIRouter()
 )
 async def get_artifact(request: Request, key: str):
     try:
-        # Proxy logs directly to avoid CORS issues with fetch()
+
         if key.startswith("logs/"):
             try:
                 response = storage_client.client.get_object(
@@ -20,7 +22,7 @@ async def get_artifact(request: Request, key: str):
                 with response:
                     return Response(content=response.read(), media_type="text/plain")
             except Exception:
-                # If log doesn't exist yet, just return empty
+
                 return Response(content="", media_type="text/plain")
 
         url = storage_client.client.presigned_get_object(
@@ -28,10 +30,12 @@ async def get_artifact(request: Request, key: str):
             object_name=key,
         )
         if "minio:9000" in url and "minio:9000" not in str(request.base_url):
-            # Replace internal Docker DNS with the external host DNS
+
             external_host = request.url.hostname
             url = url.replace("minio:9000", f"{external_host}:9000")
-            
+
         return RedirectResponse(url)
     except Exception as e:
-        raise HTTPException(status_code=404, detail=f"Artifact not found or storage error: {str(e)}")
+        raise HTTPException(
+            status_code=404, detail=f"Artifact not found or storage error: {str(e)}"
+        )

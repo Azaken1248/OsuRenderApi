@@ -1,1 +1,1 @@
-from src.db.models import Base, Job 
+from src.db.models import Base, Job

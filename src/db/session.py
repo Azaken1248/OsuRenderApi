@@ -5,10 +5,12 @@ from sqlalchemy.ext.asyncio import (
 )
 from typing import AsyncGenerator
 from src.core.config import get_settings
+
 settings = get_settings()
 
 _engine = None
 _session_factory = None
+
 
 def get_engine():
     global _engine
@@ -22,6 +24,7 @@ def get_engine():
         )
     return _engine
 
+
 def get_session_factory():
     global _session_factory
     if _session_factory is None:
@@ -31,6 +34,7 @@ def get_session_factory():
             expire_on_commit=False,
         )
     return _session_factory
+
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     factory = get_session_factory()

@@ -1,6 +1,8 @@
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -13,8 +15,12 @@ class Settings(BaseSettings):
     app_host: str = "0.0.0.0"
     app_port: int = 8000
     debug: bool = False
-    database_url: str = Field(default="postgresql+asyncpg://osurender:osurender@localhost:5433/osurender")
-    database_url_sync: str = Field(default="postgresql+psycopg2://osurender:osurender@localhost:5433/osurender")
+    database_url: str = Field(
+        default="postgresql+asyncpg://osurender:osurender@localhost:5433/osurender"
+    )
+    database_url_sync: str = Field(
+        default="postgresql+psycopg2://osurender:osurender@localhost:5433/osurender"
+    )
     redis_url: str = Field(default="redis://localhost:6379/0")
     storage_endpoint: str = Field(default="localhost:9000")
     storage_access_key: str = Field(default="minioadmin")
@@ -35,6 +41,8 @@ class Settings(BaseSettings):
     api_base_url: str = Field(default="http://localhost:8000")
     max_queued: int = Field(default=100)
     max_rendering: int = Field(default=20)
+
+
 @lru_cache()
 def get_settings() -> Settings:
     return Settings()

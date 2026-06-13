@@ -9,33 +9,38 @@ from src.core.config import get_settings
 from src.db.models import OutboxStatus
 import src.core.metrics
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger("osurender.dispatcher")
+
 
 class OutboxDispatcher:
     def __init__(self):
         self.settings = get_settings()
         self.pool = None
         self.conn = None
-        # Create background tasks
+
         self._poll_task = None
         self._sweeper_task = None
         self._drain_loop_task = None
         self._drain_event = asyncio.Event()
 
     async def connect(self):
-        # We need a dedicated connection for LISTEN
-        self.conn = await asyncpg.connect(self.settings.database_url.replace("postgresql+asyncpg", "postgresql"))
+
+        self.conn = await asyncpg.connect(
+            self.settings.database_url.replace("postgresql+asyncpg", "postgresql")
+        )
         await self.conn.add_listener("new_outbox_event", self.handle_notification)
         logger.info("Connected to PostgreSQL and listening for 'new_outbox_event'")
-        
-        # We also need a pool for executing queries concurrently if needed
-        self.pool = await asyncpg.create_pool(self.settings.database_url.replace("postgresql+asyncpg", "postgresql"))
+
+        self.pool = await asyncpg.create_pool(
+            self.settings.database_url.replace("postgresql+asyncpg", "postgresql")
+        )
 
     async def handle_notification(self, connection, pid, channel, payload):
         logger.debug(f"Received notification on {channel} with payload {payload}")
-        # Wake up the drain loop instead of spawning unbounded tasks
+
         self._drain_event.set()
 
     async def drain_loop(self):
@@ -46,8 +51,7 @@ class OutboxDispatcher:
             try:
                 await self._drain_event.wait()
                 self._drain_event.clear()
-                
-                # Keep draining until empty
+
                 while True:
                     processed = await self.drain_outbox()
                     if not processed:
@@ -81,52 +85,62 @@ class OutboxDispatcher:
         try:
             async with self.pool.acquire() as connection:
                 records = await connection.fetch(query)
-                
+
                 if not records:
                     return 0
-                
+
                 logger.info(f"Claimed {len(records)} events for processing")
-                
-                # Import here to avoid circular imports during startup
+
                 from src.workers.render_worker import process_render_job
-                
+
                 for record in records:
-                    event_id = record['id']
-                    payload_str = record['payload']
-                    retry_count = record['retry_count']
-                    
+                    event_id = record["id"]
+                    payload_str = record["payload"]
+                    retry_count = record["retry_count"]
+
                     try:
-                        payload = json.loads(payload_str) if isinstance(payload_str, str) else payload_str
+                        payload = (
+                            json.loads(payload_str)
+                            if isinstance(payload_str, str)
+                            else payload_str
+                        )
                         job_id = payload.get("job_id")
-                        
+
                         if job_id:
-                            # Try to dispatch to celery (non-blocking)
+
                             await asyncio.to_thread(process_render_job.delay, job_id)
-                            
-                            # Mark as PROCESSED
+
                             await connection.execute(
-                                "UPDATE outbox_events SET status = 'PROCESSED', processed_at = NOW() WHERE id = $1", 
-                                event_id
+                                "UPDATE outbox_events SET status = 'PROCESSED', processed_at = NOW() WHERE id = $1",
+                                event_id,
                             )
                             from src.core.metrics import outbox_dispatch_total
+
                             outbox_dispatch_total.inc()
                             logger.info(f"Dispatched job {job_id} successfully")
                     except Exception as e:
-                        logger.error(f"Failed to dispatch event {event_id}: {e}", exc_info=True)
+                        logger.error(
+                            f"Failed to dispatch event {event_id}: {e}", exc_info=True
+                        )
                         new_retry = retry_count + 1
                         if new_retry > 3:
                             await connection.execute(
-                                "UPDATE outbox_events SET status = 'FAILED', last_error = $1 WHERE id = $2", 
-                                str(e), event_id
+                                "UPDATE outbox_events SET status = 'FAILED', last_error = $1 WHERE id = $2",
+                                str(e),
+                                event_id,
                             )
-                            logger.error(f"Event {event_id} failed after {new_retry} retries")
+                            logger.error(
+                                f"Event {event_id} failed after {new_retry} retries"
+                            )
                         else:
                             await connection.execute(
-                                "UPDATE outbox_events SET status = 'PENDING', retry_count = $1, last_error = $2 WHERE id = $3", 
-                                new_retry, str(e), event_id
+                                "UPDATE outbox_events SET status = 'PENDING', retry_count = $1, last_error = $2 WHERE id = $3",
+                                new_retry,
+                                str(e),
+                                event_id,
                             )
                 return len(records)
-                            
+
         except Exception as e:
             logger.error(f"Error draining outbox: {e}", exc_info=True)
             return 0
@@ -144,11 +158,11 @@ class OutboxDispatcher:
                 break
             except Exception as e:
                 logger.error(f"Error in safety poll: {e}")
-                
+
     async def sweep_stuck_events(self):
         if not self.pool:
             return 0
-            
+
         logger.debug("Running stuck processing sweeper")
         query = """
         WITH stuck AS (
@@ -169,8 +183,11 @@ class OutboxDispatcher:
                 records = await connection.fetch(query)
                 if records:
                     from src.core.metrics import stuck_processing_events_total
+
                     stuck_processing_events_total.inc(len(records))
-                    logger.warning(f"Swept {len(records)} stuck outbox events (reverted to PENDING or marked FAILED)")
+                    logger.warning(
+                        f"Swept {len(records)} stuck outbox events (reverted to PENDING or marked FAILED)"
+                    )
                 return len(records)
         except Exception as e:
             logger.error(f"Error in stuck processing sweeper: {e}")
@@ -182,7 +199,7 @@ class OutboxDispatcher:
         """
         while True:
             try:
-                await asyncio.sleep(300) # Every 5 minutes
+                await asyncio.sleep(300)
                 await self.sweep_stuck_events()
             except asyncio.CancelledError:
                 break
@@ -194,16 +211,15 @@ class OutboxDispatcher:
         while True:
             try:
                 await self.connect()
-                
-                # Start background tasks
+
                 self._poll_task = asyncio.create_task(self.safety_poll())
-                self._sweeper_task = asyncio.create_task(self.stuck_processing_sweeper())
+                self._sweeper_task = asyncio.create_task(
+                    self.stuck_processing_sweeper()
+                )
                 self._drain_loop_task = asyncio.create_task(self.drain_loop())
-                
-                # Drain once on startup to catch anything pending
+
                 self._drain_event.set()
-                
-                # Wait for the connection to close or throw an error with active heartbeat
+
                 while self.conn and not self.conn.is_closed():
                     try:
                         await self.conn.execute("SELECT 1")
@@ -212,7 +228,7 @@ class OutboxDispatcher:
                         reconnect_reason = "listener"
                         break
                     await asyncio.sleep(30)
-                    
+
             except Exception as e:
                 logger.error(f"Dispatcher connection lost: {e}")
                 reconnect_reason = "postgres"
@@ -223,24 +239,25 @@ class OutboxDispatcher:
                     self._sweeper_task.cancel()
                 if self._drain_loop_task:
                     self._drain_loop_task.cancel()
-                    
+
                 if self.pool:
                     await self.pool.close()
-                    
-            # Reconnect jitter
+
             from src.core.metrics import listener_reconnects_total
+
             listener_reconnects_total.labels(reason=reconnect_reason).inc()
             jitter = random.uniform(3, 10)
             logger.info(f"Reconnecting dispatcher in {jitter:.2f} seconds...")
             await asyncio.sleep(jitter)
             reconnect_reason = "unknown"
 
+
 if __name__ == "__main__":
     import os
     from prometheus_client import start_http_server
-    # Start metrics server on port 8728
+
     start_http_server(8728)
-    
+
     dispatcher = OutboxDispatcher()
     try:
         asyncio.run(dispatcher.run())

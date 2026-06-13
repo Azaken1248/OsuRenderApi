@@ -2,6 +2,8 @@ import uuid
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, field_validator
+
+
 class RenderConfig(BaseModel):
     skin: str = Field(
         default="Default",
@@ -48,12 +50,14 @@ class RenderConfig(BaseModel):
         default=True,
         description="Show key press overlay.",
     )
+
     @field_validator("bg_dim", mode="before")
     @classmethod
     def normalize_bg_dim(cls, v):
         if isinstance(v, (int, float)) and v > 1.0:
             return v / 100.0
         return v
+
     @field_validator("resolution")
     @classmethod
     def validate_resolution(cls, v):
@@ -61,25 +65,33 @@ class RenderConfig(BaseModel):
         if v not in allowed:
             raise ValueError(f"Resolution must be one of: {allowed}")
         return v
+
+
 class JobCreatedResponse(BaseModel):
     job_id: uuid.UUID
     status: str = "queued"
     links: dict = Field(
         description="HATEOAS-style links for the client to follow.",
     )
-    model_config = {"json_schema_extra": {
-        "example": {
-            "job_id": "550e8400-e29b-41d4-a716-446655440000",
-            "status": "queued",
-            "links": {
-                "status": "/v1/jobs/550e8400-e29b-41d4-a716-446655440000",
-            },
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "job_id": "550e8400-e29b-41d4-a716-446655440000",
+                "status": "queued",
+                "links": {
+                    "status": "/v1/jobs/550e8400-e29b-41d4-a716-446655440000",
+                },
+            }
         }
-    }}
+    }
+
+
 class ArtifactLinks(BaseModel):
     video_url: Optional[str] = None
     thumbnail_url: Optional[str] = None
     logs_url: Optional[str] = None
+
+
 class JobStatusResponse(BaseModel):
     job_id: uuid.UUID
     status: str
@@ -91,6 +103,8 @@ class JobStatusResponse(BaseModel):
     config: dict = {}
     artifacts: ArtifactLinks = ArtifactLinks()
     model_config = {"from_attributes": True}
+
+
 class JobListResponse(BaseModel):
     total: int
     jobs: list[JobStatusResponse]

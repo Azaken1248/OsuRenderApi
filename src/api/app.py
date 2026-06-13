@@ -13,28 +13,45 @@ import asyncio
 from sqlalchemy import text
 from src.core.metrics import queue_depth
 
+
 async def metrics_poll_loop():
     from src.db.session import get_session_factory
+
     AsyncSessionLocal = get_session_factory()
     while True:
         try:
             async with AsyncSessionLocal() as db:
-                queued = await db.scalar(text("SELECT COUNT(*) FROM jobs WHERE status = 'queued'"))
-                rendering = await db.scalar(text("SELECT COUNT(*) FROM jobs WHERE status = 'rendering'"))
-                downloading = await db.scalar(text("SELECT COUNT(*) FROM jobs WHERE status = 'downloading'"))
-                outbox_pending = await db.scalar(text("SELECT COUNT(*) FROM outbox_events WHERE status = 'PENDING'"))
-                
-                if queued is not None: queue_depth.labels(status="queued").set(queued)
-                if rendering is not None: queue_depth.labels(status="rendering").set(rendering)
-                if downloading is not None: queue_depth.labels(status="downloading").set(downloading)
-                
+                queued = await db.scalar(
+                    text("SELECT COUNT(*) FROM jobs WHERE status = 'queued'")
+                )
+                rendering = await db.scalar(
+                    text("SELECT COUNT(*) FROM jobs WHERE status = 'rendering'")
+                )
+                downloading = await db.scalar(
+                    text("SELECT COUNT(*) FROM jobs WHERE status = 'downloading'")
+                )
+                outbox_pending = await db.scalar(
+                    text("SELECT COUNT(*) FROM outbox_events WHERE status = 'PENDING'")
+                )
+
+                if queued is not None:
+                    queue_depth.labels(status="queued").set(queued)
+                if rendering is not None:
+                    queue_depth.labels(status="rendering").set(rendering)
+                if downloading is not None:
+                    queue_depth.labels(status="downloading").set(downloading)
+
                 from src.core.metrics import outbox_pending_events
-                if outbox_pending is not None: outbox_pending_events.set(outbox_pending)
+
+                if outbox_pending is not None:
+                    outbox_pending_events.set(outbox_pending)
         except Exception as e:
             import logging
+
             logging.error(f"Error polling metrics: {e}")
-            
+
         await asyncio.sleep(15)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -43,16 +60,21 @@ async def lifespan(app: FastAPI):
     print(f"[startup] Debug mode: {settings.debug}")
     print(f"[startup] Database: {settings.database_url.split('@')[-1]}")
     print(f"[startup] Redis: {settings.redis_url}")
-    print(f"[startup] Storage: {settings.storage_endpoint}/{settings.storage_bucket_name}")
-    
+    print(
+        f"[startup] Storage: {settings.storage_endpoint}/{settings.storage_bucket_name}"
+    )
+
     metrics_task = asyncio.create_task(metrics_poll_loop())
-    
+
     yield
     metrics_task.cancel()
     from src.db.session import get_engine
+
     engine = get_engine()
     await engine.dispose()
     print("[shutdown] Database connections closed.")
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
@@ -73,11 +95,12 @@ def create_app() -> FastAPI:
     )
 
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore
 
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
         import logging
+
         logging.exception("Unhandled exception in API route")
         settings = get_settings()
         detail = str(exc) if settings.debug else "An internal rendering error occurred."
@@ -95,6 +118,7 @@ def create_app() -> FastAPI:
     app.include_router(artifacts.router, prefix="/v1/artifacts", tags=["Artifacts"])
 
     from prometheus_fastapi_instrumentator import Instrumentator
+
     Instrumentator().instrument(app).expose(app)
 
     return app

@@ -9,6 +9,7 @@ from src.db.session import get_db
 
 router = APIRouter()
 
+
 @router.post("/render")
 async def legacy_render(
     request: Request,
@@ -26,6 +27,7 @@ async def legacy_render(
     db: AsyncSession = Depends(get_db),
 ):
     from src.api.routes.render import submit_render
+
     res = await submit_render(
         request=request,
         replay=replay,
@@ -44,8 +46,9 @@ async def legacy_render(
     return {
         "job_id": str(res.job_id).replace("-", ""),
         "view_url": f"/view/{res.job_id.hex}",
-        "video_url": f"/video/{res.job_id.hex}.mp4"
+        "video_url": f"/video/{res.job_id.hex}.mp4",
     }
+
 
 @router.get("/status/{job_id}")
 async def legacy_status(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
@@ -61,8 +64,9 @@ async def legacy_status(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
         "map_title": job.map_title,
         "created_at": job.created_at.timestamp(),
         "last_updated": job.updated_at.timestamp(),
-        "error": job.error_message
+        "error": job.error_message,
     }
+
 
 @router.get("/jobs")
 async def legacy_list_jobs(db: AsyncSession = Depends(get_db)):
@@ -70,16 +74,21 @@ async def legacy_list_jobs(db: AsyncSession = Depends(get_db)):
     jobs = result.scalars().all()
     out = []
     for job in jobs:
-        out.append({
-            "job_id": job.id.hex,
-            "status": "complete" if job.status.value == "completed" else job.status.value,
-            "percent": job.progress,
-            "skin": job.config.get("skin", "Default") if job.config else "Default",
-            "map_title": job.map_title,
-            "created_at": job.created_at.timestamp(),
-            "last_updated": job.updated_at.timestamp()
-        })
+        out.append(
+            {
+                "job_id": job.id.hex,
+                "status": (
+                    "complete" if job.status.value == "completed" else job.status.value
+                ),
+                "percent": job.progress,
+                "skin": job.config.get("skin", "Default") if job.config else "Default",
+                "map_title": job.map_title,
+                "created_at": job.created_at.timestamp(),
+                "last_updated": job.updated_at.timestamp(),
+            }
+        )
     return out
+
 
 @router.get("/thumbnail/{job_id}.jpg")
 async def legacy_thumbnail(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
@@ -89,6 +98,7 @@ async def legacy_thumbnail(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)
         raise HTTPException(404, "Thumbnail not found")
     return RedirectResponse(f"/v1/artifacts/{job.thumb_storage_key}")
 
+
 @router.get("/video/{job_id}.mp4")
 async def legacy_video(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Job).where(Job.id == job_id))
@@ -96,6 +106,7 @@ async def legacy_video(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     if not job or not job.video_storage_key:
         raise HTTPException(404, "Video not found")
     return RedirectResponse(f"/v1/artifacts/{job.video_storage_key}")
+
 
 @router.get("/logs/{job_id}")
 async def legacy_logs(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
@@ -107,12 +118,16 @@ async def legacy_logs(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
         return {"status": "no logs"}
     return RedirectResponse(f"/v1/artifacts/logs/{job.id}.log")
 
+
 @router.get("/skins")
 async def legacy_list_skins():
     from src.api.routes.skins import list_skins
+
     return await list_skins()
+
 
 @router.post("/skins/upload")
 async def legacy_upload_skin(skin: UploadFile = File(...)):
     from src.api.routes.skins import upload_skin
+
     return await upload_skin(skin=skin)

@@ -20,13 +20,16 @@ settings = get_settings()
 DANSER_BIN = os.environ.get("DANSER_BIN", "danser-cli")
 SONGS_DIR = os.environ.get("SONGS_DIR", "/tmp/osu_data/Songs")
 
-async def fetch_beatmap_with_backoff(client: httpx.AsyncClient, h: str, max_retries: int = 3):
+
+async def fetch_beatmap_with_backoff(
+    client: httpx.AsyncClient, h: str, max_retries: int = 3
+):
     for attempt in range(max_retries):
         try:
             r = await client.get(
                 "https://osu.ppy.sh/api/get_beatmaps",
                 params={"k": settings.osu_api_key, "h": h},
-                timeout=30.0
+                timeout=30.0,
             )
             r.raise_for_status()
             data = r.json()
@@ -35,12 +38,20 @@ async def fetch_beatmap_with_backoff(client: httpx.AsyncClient, h: str, max_retr
         except Exception as e:
             if attempt == max_retries - 1:
                 raise e
-            await asyncio.sleep(2 ** attempt)
+            await asyncio.sleep(2**attempt)
     return None
 
+
 from src.db.session import get_session_factory
-from src.core.metrics import active_render_workers, render_duration_seconds, render_failures_total, jobs_completed_total, jobs_failed_total
+from src.core.metrics import (
+    active_render_workers,
+    render_duration_seconds,
+    render_failures_total,
+    jobs_completed_total,
+    jobs_failed_total,
+)
 import time
+
 
 async def _process_render_job(job_id: str):
     active_render_workers.inc()
@@ -48,7 +59,7 @@ async def _process_render_job(job_id: str):
     try:
         factory = get_session_factory()
         async with factory() as db:
-            # Worker Idempotency Check
+
             update_stmt = (
                 update(Job)
                 .where(Job.id == uuid.UUID(job_id), Job.status == JobStatus.QUEUED)
@@ -57,7 +68,7 @@ async def _process_render_job(job_id: str):
             res = await db.execute(update_stmt)
             if getattr(res, "rowcount", 0) == 0:
                 return "aborted"
-                
+
             result = await db.execute(select(Job).where(Job.id == uuid.UUID(job_id)))
             job: Job | None = result.scalar_one_or_none()
             if not job:
@@ -73,7 +84,7 @@ async def _process_render_job(job_id: str):
                 storage_client.client.fget_object(
                     bucket_name=storage_client.bucket,
                     object_name=job.replay_storage_key,
-                    file_path=osr_path
+                    file_path=osr_path,
                 )
 
                 replay = None
@@ -93,17 +104,23 @@ async def _process_render_job(job_id: str):
                         b_id = beatmap_data["beatmap_id"]
                         job.beatmap_id = int(b_id)
                         job.map_title = f"{beatmap_data.get('artist')} - {beatmap_data.get('title')}"
-                        
-                        # Fetch PP from osu API if possible
+
                         pp_val = 0.0
                         try:
                             username = getattr(replay, "username", "")
                             if username:
-                                scores_resp = await client.get(f"https://osu.ppy.sh/api/get_scores?k={settings.osu_api_key}&b={b_id}&u={username}")
+                                scores_resp = await client.get(
+                                    f"https://osu.ppy.sh/api/get_scores?k={settings.osu_api_key}&b={b_id}&u={username}"
+                                )
                                 if scores_resp.status_code == 200:
                                     scores_data = scores_resp.json()
                                     for score in scores_data:
-                                        if int(score.get("maxcombo", 0)) == replay.max_combo and int(score.get("count300", 0)) == replay.count_300:
+                                        if (
+                                            int(score.get("maxcombo", 0))
+                                            == replay.max_combo
+                                            and int(score.get("count300", 0))
+                                            == replay.count_300
+                                        ):
                                             pp_val = float(score.get("pp") or 0)
                                             break
                                     if pp_val == 0 and len(scores_data) > 0:
@@ -111,7 +128,6 @@ async def _process_render_job(job_id: str):
                         except Exception:
                             pass
 
-                        # Store stats
                         c_dict = dict(job.config)
                         c_dict["replay_stats"] = {
                             "300s": replay.count_300,
@@ -120,69 +136,86 @@ async def _process_render_job(job_id: str):
                             "misses": replay.count_miss,
                             "max_combo": replay.max_combo,
                             "star_rating": beatmap_data.get("difficultyrating"),
-                            "pp": pp_val 
+                            "pp": pp_val,
                         }
                         job.config = c_dict
-                        
+
                         await db.commit()
                     else:
-                        raise Exception(f"Beatmap with hash {h} not found on osu! API (or API key missing). Unranked/unavailable maps cannot be rendered yet.")
-
+                        raise Exception(
+                            f"Beatmap with hash {h} not found on osu! API (or API key missing). Unranked/unavailable maps cannot be rendered yet."
+                        )
 
                 job.status = JobStatus.RENDERING
                 await db.commit()
 
                 target_name = f"render_{job_id}"
-                
-                patch = json.dumps({
-                    "Graphics": {
-                        "Width": 1920 if job.config.get("resolution") == "1080p" else 3840, 
-                        "Height": 1080 if job.config.get("resolution") == "1080p" else 2160
-                    },
-                    "Gameplay": {
-                        "HitErrorMeter": {"Show": job.config.get("hit_error_meter", True)},
-                        "KeyOverlay": {"Show": job.config.get("key_overlay", True)}
-                    },
-                    "Skin": {
-                        "CurrentSkin": job.config.get("skin", "Default"),
-                        "UseColorsFromSkin": True,
-                        "UseBeatmapColors": False,
-                        "Cursor": {
-                            "UseSkinCursor": True,
-                            "Scale": 0.6
-                        }
-                    },
-                    "Objects": {
-                        "Colors": {"UseSkinColors": True, "UseBeatmapColors": False},
-                        "Sliders": {
-                            "ForceSliderBallTexture": True,
-                            "Snaking": {
-                                "In": job.config.get("snaking_in", True),
-                                "Out": job.config.get("snaking_out", True)
+
+                patch = json.dumps(
+                    {
+                        "Graphics": {
+                            "Width": (
+                                1920
+                                if job.config.get("resolution") == "1080p"
+                                else 3840
+                            ),
+                            "Height": (
+                                1080
+                                if job.config.get("resolution") == "1080p"
+                                else 2160
+                            ),
+                        },
+                        "Gameplay": {
+                            "HitErrorMeter": {
+                                "Show": job.config.get("hit_error_meter", True)
+                            },
+                            "KeyOverlay": {"Show": job.config.get("key_overlay", True)},
+                        },
+                        "Skin": {
+                            "CurrentSkin": job.config.get("skin", "Default"),
+                            "UseColorsFromSkin": True,
+                            "UseBeatmapColors": False,
+                            "Cursor": {"UseSkinCursor": True, "Scale": 0.6},
+                        },
+                        "Objects": {
+                            "Colors": {
+                                "UseSkinColors": True,
+                                "UseBeatmapColors": False,
+                            },
+                            "Sliders": {
+                                "ForceSliderBallTexture": True,
+                                "Snaking": {
+                                    "In": job.config.get("snaking_in", True),
+                                    "Out": job.config.get("snaking_out", True),
+                                },
+                            },
+                        },
+                        "Playfield": {
+                            "Background": {
+                                "Dim": {"Normal": job.config.get("bg_dim", 0.95)},
+                                "LoadStoryboards": job.config.get("storyboard", True),
+                                "LoadVideos": job.config.get("video", False),
                             }
-                        }
-                    },
-                    "Playfield": {
-                        "Background": {
-                            "Dim": {"Normal": job.config.get("bg_dim", 0.95)},
-                            "LoadStoryboards": job.config.get("storyboard", True),
-                            "LoadVideos": job.config.get("video", False)
-                        }
-                    },
-                    "Cursor": {"UseSkinCursor": True},
-                    "Recording": {
-                        "MotionBlur": {"Enabled": job.config.get("motion_blur", True)},
-                        "Encoder": "libx264"
+                        },
+                        "Cursor": {"UseSkinCursor": True},
+                        "Recording": {
+                            "MotionBlur": {
+                                "Enabled": job.config.get("motion_blur", True)
+                            },
+                            "Encoder": "libx264",
+                        },
                     }
-                })
+                )
 
                 current_phase = "render"
                 if os.environ.get("USE_MODAL_GPU") == "1":
                     import modal
-                    
-                    gpu_render_fn = modal.Function.from_name("osurender-gpu-worker", "gpu_render_task")  # type: ignore[attr-defined]
-                    
-                    function_call = gpu_render_fn.spawn(  # type: ignore
+
+                    gpu_render_fn = modal.Function.from_name(
+                        "osurender-gpu-worker", "gpu_render_task"
+                    )
+
+                    function_call = gpu_render_fn.spawn(
                         job_id=job_id,
                         set_id=set_id,
                         replay_key=job.replay_storage_key,
@@ -190,27 +223,29 @@ async def _process_render_job(job_id: str):
                         patch=patch,
                         target_name=target_name,
                         bucket_name=storage_client.bucket,
-                        webhook_url=f"{settings.api_base_url}/v1/jobs/{job_id}/webhook"
+                        webhook_url=f"{settings.api_base_url}/v1/jobs/{job_id}/webhook",
                     )
-                    
+
                     job.modal_call_id = function_call.object_id
                     await db.commit()
-                    
+
                     return f"Dispatched to Modal: {function_call.object_id}"
-                    
+
                 else:
                     from src.core.render_pipeline import execute_render_pipeline
-                    
+
                     endpoint = os.environ.get("STORAGE_ENDPOINT", "minio:9000")
-                    # Make sure it's a valid url
+
                     if not endpoint.startswith("http"):
-                        use_ssl = os.environ.get("STORAGE_USE_SSL", "false").lower() == "true"
+                        use_ssl = (
+                            os.environ.get("STORAGE_USE_SSL", "false").lower() == "true"
+                        )
                         scheme = "https" if use_ssl else "http"
                         endpoint = f"{scheme}://{endpoint}"
 
                     access_key = os.environ.get("STORAGE_ACCESS_KEY", "minioadmin")
                     secret_key = os.environ.get("STORAGE_SECRET_KEY", "minioadmin")
-                    
+
                     result_dict = await execute_render_pipeline(
                         job_id=job_id,
                         set_id=set_id,
@@ -225,15 +260,17 @@ async def _process_render_job(job_id: str):
                         s3_endpoint=endpoint,
                         s3_access_key=access_key,
                         s3_secret_key=secret_key,
-                        assets_commit_fn=None
+                        assets_commit_fn=None,
                     )
-                    
+
                     if not result_dict.get("success"):
-                        raise Exception(result_dict.get("error", "Local execution pipeline failed"))
-                        
+                        raise Exception(
+                            result_dict.get("error", "Local execution pipeline failed")
+                        )
+
                     video_key = result_dict.get("video_key")
                     thumb_key = result_dict.get("thumb_key")
-                    
+
                     if "pp" in result_dict and float(result_dict["pp"]) > 0:
                         c_dict = dict(job.config)
                         if "replay_stats" in c_dict:
@@ -249,12 +286,15 @@ async def _process_render_job(job_id: str):
                     jobs_completed_total.inc()
 
         except Exception as e:
-            render_failures_total.labels(reason=locals().get("current_phase", "unknown")).inc()
-            if 'job' in locals() and job is not None:
+            render_failures_total.labels(
+                reason=locals().get("current_phase", "unknown")
+            ).inc()
+            if "job" in locals() and job is not None:
                 import logging
+
                 logger = logging.getLogger("osurender.worker")
                 logger.exception(f"Render failed for job {job_id}")
-                
+
                 job.status = JobStatus.FAILED
                 job.error_message = str(e)
                 await db.commit()
@@ -263,12 +303,13 @@ async def _process_render_job(job_id: str):
         active_render_workers.dec()
         render_duration_seconds.observe(time.monotonic() - start_time)
 
+
 @celery_app.task(
-    name="process_render_job", 
-    bind=True, 
+    name="process_render_job",
+    bind=True,
     max_retries=3,
-    time_limit=660, 
-    soft_time_limit=600
+    time_limit=660,
+    soft_time_limit=600,
 )
 def process_render_job(self, job_id: str):
     asyncio.run(_process_render_job(job_id))
@@ -279,44 +320,49 @@ async def _reap_zombie_jobs():
     from src.db.models import Job, JobStatus
     from sqlalchemy import select, update
     from datetime import datetime, timezone, timedelta
-    
+
     timeout_threshold = datetime.now(timezone.utc) - timedelta(minutes=15)
     queued_threshold = datetime.now(timezone.utc) - timedelta(minutes=5)
-    
+
     factory = get_session_factory()
     async with factory() as db:
-        # Reap completely stuck jobs
-        query1 = update(Job).where(
-            Job.status.in_([JobStatus.RENDERING, JobStatus.DOWNLOADING]),
-            Job.updated_at < timeout_threshold
-        ).values(
-            status=JobStatus.FAILED,
-            error_message="Job timed out and was reaped by the system."
+
+        query1 = (
+            update(Job)
+            .where(
+                Job.status.in_([JobStatus.RENDERING, JobStatus.DOWNLOADING]),
+                Job.updated_at < timeout_threshold,
+            )
+            .values(
+                status=JobStatus.FAILED,
+                error_message="Job timed out and was reaped by the system.",
+            )
         )
         await db.execute(query1)
-        
-        # Bounded Queue Recovery Sweeper
-        # Find queued jobs older than 5 mins, increment retry_count
-        query2 = update(Job).where(
-            Job.status == JobStatus.QUEUED,
-            Job.created_at < queued_threshold,
-            Job.retry_count <= 3
-        ).values(
-            retry_count=Job.retry_count + 1
+
+        query2 = (
+            update(Job)
+            .where(
+                Job.status == JobStatus.QUEUED,
+                Job.created_at < queued_threshold,
+                Job.retry_count <= 3,
+            )
+            .values(retry_count=Job.retry_count + 1)
         )
         await db.execute(query2)
-        
-        # Fail queued jobs that exceeded retries
-        query3 = update(Job).where(
-            Job.status == JobStatus.QUEUED,
-            Job.retry_count > 3
-        ).values(
-            status=JobStatus.FAILED,
-            error_message="Job failed to dispatch after 3 retries."
+
+        query3 = (
+            update(Job)
+            .where(Job.status == JobStatus.QUEUED, Job.retry_count > 3)
+            .values(
+                status=JobStatus.FAILED,
+                error_message="Job failed to dispatch after 3 retries.",
+            )
         )
         await db.execute(query3)
-        
+
         await db.commit()
+
 
 @celery_app.task(name="reap_zombie_jobs")
 def reap_zombie_jobs():

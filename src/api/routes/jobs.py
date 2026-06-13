@@ -5,8 +5,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.schemas import ArtifactLinks, JobListResponse, JobStatusResponse
 from src.db.models import Job
 from src.db.session import get_db
+
 router = APIRouter()
 from src.api.utils import serialize_error
+
 
 def _job_to_response(job: Job) -> JobStatusResponse:
     return JobStatusResponse(
@@ -19,11 +21,21 @@ def _job_to_response(job: Job) -> JobStatusResponse:
         error_message=serialize_error(job.error_message),
         config=job.config or {},
         artifacts=ArtifactLinks(
-            video_url=f"/v1/artifacts/{job.video_storage_key}" if job.video_storage_key else None,
-            thumbnail_url=f"/v1/artifacts/{job.thumb_storage_key}" if job.thumb_storage_key else None,
+            video_url=(
+                f"/v1/artifacts/{job.video_storage_key}"
+                if job.video_storage_key
+                else None
+            ),
+            thumbnail_url=(
+                f"/v1/artifacts/{job.thumb_storage_key}"
+                if job.thumb_storage_key
+                else None
+            ),
             logs_url=f"/v1/artifacts/logs/{job.id}.log",
         ),
     )
+
+
 @router.get(
     "/jobs/{job_id}",
     response_model=JobStatusResponse,
@@ -42,6 +54,8 @@ async def get_job_status(
             detail=f"Job '{job_id}' not found.",
         )
     return _job_to_response(job)
+
+
 @router.get(
     "/jobs",
     response_model=JobListResponse,
@@ -69,8 +83,10 @@ async def list_jobs(
         jobs=[_job_to_response(j) for j in jobs],
     )
 
+
 from pydantic import BaseModel
 from src.db.models import JobStatus
+
 
 class WebhookPayload(BaseModel):
     success: bool
@@ -79,6 +95,7 @@ class WebhookPayload(BaseModel):
     log_key: str = ""
     error: str = ""
     pp: float = 0.0
+
 
 @router.post(
     "/jobs/{job_id}/webhook",

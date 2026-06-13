@@ -10,6 +10,7 @@ import uuid
 router = APIRouter()
 templates = Jinja2Templates(directory="src/api/templates")
 
+
 @router.get(
     "/",
     response_class=HTMLResponse,
@@ -19,6 +20,7 @@ templates = Jinja2Templates(directory="src/api/templates")
 async def home(request: Request):
     return templates.TemplateResponse(request, "home.html")
 
+
 @router.get(
     "/view/{job_id}",
     response_class=HTMLResponse,
@@ -26,29 +28,33 @@ async def home(request: Request):
     description="Returns an HTML player with OpenGraph and Twitter card meta tags for Discord/social embedding.",
 )
 async def view_player(
-    request: Request,
-    job_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db)
+    request: Request, job_id: uuid.UUID, db: AsyncSession = Depends(get_db)
 ):
     result = await db.execute(select(Job).where(Job.id == job_id))
     job = result.scalar_one_or_none()
-    
+
     if not job:
         return HTMLResponse(
             """<html><body style="background:#111;color:#ff66aa;font-family:sans-serif;text-align:center;padding:50px;">
-            <h1>404 - Job not found</h1></body></html>""", 
-            status_code=404
+            <h1>404 - Job not found</h1></body></html>""",
+            status_code=404,
         )
-        
+
     is_complete = job.status.value == "completed"
-    
-    video_url = f"/v1/artifacts/{job.video_storage_key}" if job.video_storage_key else ""
-    thumb_url = f"/v1/artifacts/{job.thumb_storage_key}" if job.thumb_storage_key else ""
-    
-    video_src_html = f'<source src="{video_url}" type="video/mp4">' if is_complete else ''
-    
+
+    video_url = (
+        f"/v1/artifacts/{job.video_storage_key}" if job.video_storage_key else ""
+    )
+    thumb_url = (
+        f"/v1/artifacts/{job.thumb_storage_key}" if job.thumb_storage_key else ""
+    )
+
+    video_src_html = (
+        f'<source src="{video_url}" type="video/mp4">' if is_complete else ""
+    )
+
     map_title = job.map_title or job.id.hex
-    
+
     return templates.TemplateResponse(
         request,
         "view_player.html",
@@ -60,6 +66,6 @@ async def view_player(
             "thumb_url": thumb_url,
             "video_url": video_url,
             "video_src_html": video_src_html,
-            "base_url": "https://api.render.azaken.com"
-        }
+            "base_url": "https://api.render.azaken.com",
+        },
     )
