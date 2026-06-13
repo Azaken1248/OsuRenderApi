@@ -4,15 +4,15 @@ services:
     container_name: osurender-postgres
     command: -c max_connections=200
     environment:
-      POSTGRES_USER: osurender
-      POSTGRES_PASSWORD: osurender
-      POSTGRES_DB: osurender
+      POSTGRES_USER: ${POSTGRES_USER:?error_missing_postgres_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?error_missing_postgres_password}
+      POSTGRES_DB: ${POSTGRES_DB:-osurender}
     ports:
       - "${POSTGRES_PORT:-5434}:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U osurender"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -75,20 +75,21 @@ services:
     mem_limit: 1g
     cpus: 1
     environment:
+      - DEBUG=${DEBUG:-False}
       - WORKER_TYPE=api
       - APP_HOST=${APP_HOST:-0.0.0.0}
       - APP_PORT=${APP_PORT:-8000}
-      - DATABASE_URL=postgresql+asyncpg://osurender:osurender@postgres:5432/osurender
-      - DATABASE_URL_SYNC=postgresql+psycopg2://osurender:osurender@postgres:5432/osurender
-      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:?error_missing_database_url}
+      - DATABASE_URL_SYNC=${DATABASE_URL_SYNC:?error_missing_database_url_sync}
+      - REDIS_URL=${REDIS_URL:?error_missing_redis_url}
       - STORAGE_ENDPOINT=${STORAGE_ENDPOINT:-minio:9000}
-      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:-minioadmin}
-      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY:-minioadmin}
+      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:?error_missing_storage_access_key}
+      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY:?error_missing_storage_secret_key}
       - STORAGE_BUCKET_NAME=${STORAGE_BUCKET_NAME:-osurender}
       - STORAGE_USE_SSL=${STORAGE_USE_SSL:-false}
       - USE_MODAL_GPU=${USE_MODAL_GPU:-0}
-      - MODAL_TOKEN_ID=${MODAL_TOKEN_ID}
-      - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET}
+      - MODAL_TOKEN_ID=${MODAL_TOKEN_ID:?error_missing_modal_token_id}
+      - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET:?error_missing_modal_token_secret}
       - OSU_API_KEY=${OSU_API_KEY}
       - API_BASE_URL=${API_BASE_URL:-http://localhost:8000}
     depends_on:
@@ -108,19 +109,20 @@ services:
     mem_limit: 1g
     cpus: 1
     environment:
+      - DEBUG=${DEBUG:-False}
       - WORKER_TYPE=celery
       - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus_multiproc
-      - DATABASE_URL=postgresql+asyncpg://osurender:osurender@postgres:5432/osurender
-      - DATABASE_URL_SYNC=postgresql+psycopg2://osurender:osurender@postgres:5432/osurender
-      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:?error_missing_database_url}
+      - DATABASE_URL_SYNC=${DATABASE_URL_SYNC:?error_missing_database_url_sync}
+      - REDIS_URL=${REDIS_URL:?error_missing_redis_url}
       - STORAGE_ENDPOINT=${STORAGE_ENDPOINT:-minio:9000}
-      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:-minioadmin}
-      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY:-minioadmin}
+      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:?error_missing_storage_access_key}
+      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY:?error_missing_storage_secret_key}
       - STORAGE_BUCKET_NAME=${STORAGE_BUCKET_NAME:-osurender}
       - STORAGE_USE_SSL=${STORAGE_USE_SSL:-false}
       - USE_MODAL_GPU=${USE_MODAL_GPU:-0}
-      - MODAL_TOKEN_ID=${MODAL_TOKEN_ID}
-      - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET}
+      - MODAL_TOKEN_ID=${MODAL_TOKEN_ID:?error_missing_modal_token_id}
+      - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET:?error_missing_modal_token_secret}
       - OSU_API_KEY=${OSU_API_KEY}
       - API_BASE_URL=${API_BASE_URL:-http://localhost:8000}
     depends_on:
@@ -136,18 +138,19 @@ services:
     build: .
     container_name: osurender-worker-beat
     environment:
+      - DEBUG=${DEBUG:-False}
       - WORKER_TYPE=beat
-      - DATABASE_URL=postgresql+asyncpg://osurender:osurender@postgres:5432/osurender
-      - DATABASE_URL_SYNC=postgresql+psycopg2://osurender:osurender@postgres:5432/osurender
-      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:?error_missing_database_url}
+      - DATABASE_URL_SYNC=${DATABASE_URL_SYNC:?error_missing_database_url_sync}
+      - REDIS_URL=${REDIS_URL:?error_missing_redis_url}
       - STORAGE_ENDPOINT=${STORAGE_ENDPOINT:-minio:9000}
-      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:-minioadmin}
-      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY:-minioadmin}
+      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:?error_missing_storage_access_key}
+      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY:?error_missing_storage_secret_key}
       - STORAGE_BUCKET_NAME=${STORAGE_BUCKET_NAME:-osurender}
       - STORAGE_USE_SSL=${STORAGE_USE_SSL:-false}
       - USE_MODAL_GPU=${USE_MODAL_GPU:-0}
-      - MODAL_TOKEN_ID=${MODAL_TOKEN_ID}
-      - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET}
+      - MODAL_TOKEN_ID=${MODAL_TOKEN_ID:?error_missing_modal_token_id}
+      - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET:?error_missing_modal_token_secret}
       - OSU_API_KEY=${OSU_API_KEY}
       - API_BASE_URL=${API_BASE_URL:-http://localhost:8000}
     depends_on:
@@ -167,18 +170,19 @@ services:
     mem_limit: 1g
     cpus: 1
     environment:
+      - DEBUG=${DEBUG:-False}
       - WORKER_TYPE=dispatcher
-      - DATABASE_URL=postgresql+asyncpg://osurender:osurender@postgres:5432/osurender
-      - DATABASE_URL_SYNC=postgresql+psycopg2://osurender:osurender@postgres:5432/osurender
-      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:?error_missing_database_url}
+      - DATABASE_URL_SYNC=${DATABASE_URL_SYNC:?error_missing_database_url_sync}
+      - REDIS_URL=${REDIS_URL:?error_missing_redis_url}
       - STORAGE_ENDPOINT=${STORAGE_ENDPOINT:-minio:9000}
-      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:-minioadmin}
-      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY:-minioadmin}
+      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:?error_missing_storage_access_key}
+      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY:?error_missing_storage_secret_key}
       - STORAGE_BUCKET_NAME=${STORAGE_BUCKET_NAME:-osurender}
       - STORAGE_USE_SSL=${STORAGE_USE_SSL:-false}
       - USE_MODAL_GPU=${USE_MODAL_GPU:-0}
-      - MODAL_TOKEN_ID=${MODAL_TOKEN_ID}
-      - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET}
+      - MODAL_TOKEN_ID=${MODAL_TOKEN_ID:?error_missing_modal_token_id}
+      - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET:?error_missing_modal_token_secret}
       - OSU_API_KEY=${OSU_API_KEY}
       - API_BASE_URL=${API_BASE_URL:-http://localhost:8000}
     depends_on:

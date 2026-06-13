@@ -78,10 +78,12 @@ def create_app() -> FastAPI:
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
         import logging
-        logging.error(f"Unhandled exception: {exc}")
+        logging.exception("Unhandled exception in API route")
+        settings = get_settings()
+        detail = str(exc) if settings.debug else "An internal rendering error occurred."
         return JSONResponse(
             status_code=500,
-            content={"detail": "Internal server error. Please try again later."},
+            content={"detail": detail},
         )
 
     app.include_router(health.router, tags=["Health"])

@@ -6,6 +6,8 @@ from src.api.schemas import ArtifactLinks, JobListResponse, JobStatusResponse
 from src.db.models import Job
 from src.db.session import get_db
 router = APIRouter()
+from src.api.utils import serialize_error
+
 def _job_to_response(job: Job) -> JobStatusResponse:
     return JobStatusResponse(
         job_id=job.id,
@@ -14,7 +16,7 @@ def _job_to_response(job: Job) -> JobStatusResponse:
         map_title=job.map_title,
         created_at=job.created_at,
         updated_at=job.updated_at,
-        error_message=job.error_message,
+        error_message=serialize_error(job.error_message),
         config=job.config or {},
         artifacts=ArtifactLinks(
             video_url=f"/v1/artifacts/{job.video_storage_key}" if job.video_storage_key else None,
