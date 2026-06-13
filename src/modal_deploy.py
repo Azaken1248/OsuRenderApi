@@ -82,9 +82,11 @@ async def gpu_render_task(
 
     if webhook_url:
         import httpx
+        import hmac
+        import hashlib
+        import json
 
         try:
-
             payload = {
                 "success": result.get("success", False),
                 "video_key": result.get("video_key", ""),
@@ -93,8 +95,18 @@ async def gpu_render_task(
                 "error": result.get("error", ""),
                 "pp": result.get("pp", 0.0),
             }
+            body = json.dumps(payload).encode()
+            headers = {}
+            webhook_secret = os.environ.get("WEBHOOK_SECRET")
+            if webhook_secret:
+                headers["X-Signature"] = hmac.new(
+                    webhook_secret.encode(), body, hashlib.sha256
+                ).hexdigest()
+
             async with httpx.AsyncClient() as client:
-                await client.post(webhook_url, json=payload, timeout=15.0)
+                await client.post(
+                    webhook_url, content=body, headers=headers, timeout=15.0
+                )
         except Exception as e:
             print(f"Webhook error: {e}")
 

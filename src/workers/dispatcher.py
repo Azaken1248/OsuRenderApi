@@ -206,6 +206,31 @@ class OutboxDispatcher:
             except Exception as e:
                 logger.error(f"Error in stuck processing sweeper: {e}")
 
+    async def sweep_old_events(self):
+        if not self.pool:
+            return 0
+        logger.debug("Running data lifecycle sweeper")
+        query = """
+        DELETE FROM outbox_events 
+        WHERE status = 'PROCESSED' 
+        AND processed_at < NOW() - INTERVAL '7 days';
+        """
+        try:
+            async with self.pool.acquire() as connection:
+                await connection.execute(query)
+        except Exception as e:
+            logger.error(f"Failed to sweep old events: {e}")
+
+    async def data_lifecycle_sweeper(self):
+        while True:
+            try:
+                await asyncio.sleep(3600)
+                await self.sweep_old_events()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in data lifecycle sweeper: {e}")
+
     async def run(self):
         reconnect_reason = "startup"
         while True:
@@ -215,6 +240,9 @@ class OutboxDispatcher:
                 self._poll_task = asyncio.create_task(self.safety_poll())
                 self._sweeper_task = asyncio.create_task(
                     self.stuck_processing_sweeper()
+                )
+                self._lifecycle_task = asyncio.create_task(
+                    self.data_lifecycle_sweeper()
                 )
                 self._drain_loop_task = asyncio.create_task(self.drain_loop())
 
@@ -237,6 +265,8 @@ class OutboxDispatcher:
                     self._poll_task.cancel()
                 if self._sweeper_task:
                     self._sweeper_task.cancel()
+                if hasattr(self, "_lifecycle_task") and self._lifecycle_task:
+                    self._lifecycle_task.cancel()
                 if self._drain_loop_task:
                     self._drain_loop_task.cancel()
 

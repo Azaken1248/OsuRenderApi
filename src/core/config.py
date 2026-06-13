@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     use_modal_gpu: str = Field(default="0")
     modal_token_id: str = Field(default="")
     modal_token_secret: str = Field(default="")
+    webhook_secret: str = Field(default="")
     default_skin: str = "Default"
     default_bg_dim: float = 0.95
     default_resolution: str = "1080p"

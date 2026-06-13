@@ -12,9 +12,9 @@ settings = get_settings()
 
 
 def get_real_ip(request):
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
+    cf_ip = request.headers.get("CF-Connecting-IP")
+    if cf_ip:
+        return cf_ip
     return get_remote_address(request)
 
 

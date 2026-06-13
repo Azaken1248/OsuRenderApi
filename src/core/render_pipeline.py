@@ -170,9 +170,17 @@ async def execute_render_pipeline(
                             os.makedirs(skin_folder, exist_ok=True)
                             with zipfile.ZipFile(skin_tmp_path, "r") as z:
                                 skin_folder_abs = os.path.abspath(skin_folder)
-                                for member in z.namelist():
+                                MAX_UNCOMPRESSED_SIZE = 1024 * 1024 * 1024
+                                total_extracted_size = 0
+                                for member in z.infolist():
+                                    total_extracted_size += member.file_size
+                                    if total_extracted_size > MAX_UNCOMPRESSED_SIZE:
+                                        raise Exception(
+                                            "Decompression bomb detected: uncompressed size exceeds limit."
+                                        )
+
                                     member_path = os.path.abspath(
-                                        os.path.join(skin_folder_abs, member)
+                                        os.path.join(skin_folder_abs, member.filename)
                                     )
                                     if (
                                         os.path.commonpath(
@@ -180,7 +188,9 @@ async def execute_render_pipeline(
                                         )
                                         != skin_folder_abs
                                     ):
-                                        raise Exception(f"Attempted Zip Slip: {member}")
+                                        raise Exception(
+                                            f"Attempted Zip Slip: {member.filename}"
+                                        )
                                     z.extract(member, skin_folder)
                             log("  Skin extracted successfully.")
                             if assets_commit_fn:
@@ -192,15 +202,13 @@ async def execute_render_pipeline(
                         log(f"Skin already cached: {skin}")
 
                 log("Starting danser render...")
-                env = os.environ.copy()
-                env.update(
-                    {
-                        "DISPLAY": ":99",
-                        "NVIDIA_DRIVER_CAPABILITIES": "all",
-                        "__GLX_VENDOR_LIBRARY_NAME": "nvidia",
-                        "__NV_PRIME_RENDER_OFFLOAD": "1",
-                    }
-                )
+                env = {
+                    "DISPLAY": ":99",
+                    "NVIDIA_DRIVER_CAPABILITIES": "all",
+                    "__GLX_VENDOR_LIBRARY_NAME": "nvidia",
+                    "__NV_PRIME_RENDER_OFFLOAD": "1",
+                    "PATH": os.environ.get("PATH", ""),
+                }
 
                 cmd = [
                     "xvfb-run",

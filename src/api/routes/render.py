@@ -106,11 +106,9 @@ async def submit_render(
             detail="The render infrastructure is at maximum capacity. Please try again later.",
         )
 
-    forwarded = request.headers.get("x-forwarded-for")
+    cf_ip = request.headers.get("CF-Connecting-IP")
     client_ip = (
-        forwarded.split(",")[0].strip()
-        if forwarded
-        else (request.client.host if request.client else "unknown")
+        cf_ip if cf_ip else (request.client.host if request.client else "unknown")
     )
     ip_lock_id = zlib.crc32(client_ip.encode())
     await db.execute(text("SELECT pg_advisory_xact_lock(:id)"), {"id": ip_lock_id})

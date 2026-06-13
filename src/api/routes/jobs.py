@@ -97,6 +97,12 @@ class WebhookPayload(BaseModel):
     pp: float = 0.0
 
 
+import hmac
+import hashlib
+from fastapi import Request
+from src.core.config import get_settings
+
+
 @router.post(
     "/jobs/{job_id}/webhook",
     summary="Modal Webhook Callback",
@@ -105,8 +111,23 @@ class WebhookPayload(BaseModel):
 async def job_webhook(
     job_id: uuid.UUID,
     payload: WebhookPayload,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
+    settings = get_settings()
+    if settings.webhook_secret:
+        signature = request.headers.get("X-Signature")
+        if not signature:
+            raise HTTPException(status_code=401, detail="Missing signature")
+
+        body = await request.body()
+        expected_sig = hmac.new(
+            settings.webhook_secret.encode(), body, hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(signature, expected_sig):
+            raise HTTPException(status_code=401, detail="Invalid signature")
+
     result = await db.execute(select(Job).where(Job.id == job_id))
     job = result.scalar_one_or_none()
     if not job:
