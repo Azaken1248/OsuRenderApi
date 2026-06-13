@@ -63,9 +63,8 @@ async def submit_render(
 
     from osrparse import Replay
 
-    replay_bytes = await replay.read()
     try:
-        parsed_replay = Replay.from_string(replay_bytes)
+        parsed_replay = Replay.from_file(replay.file)
         if parsed_replay.mode.value != 0:
             raise ValueError("Only osu!standard replays are supported.")
     except Exception as e:
@@ -73,7 +72,8 @@ async def submit_render(
             status_code=415,
             detail="Invalid replay file. The structure is corrupted or unsupported.",
         )
-    await replay.seek(0)
+    finally:
+        await replay.seek(0)
 
     import re
 
@@ -110,7 +110,11 @@ async def submit_render(
     client_ip = (
         cf_ip if cf_ip else (request.client.host if request.client else "unknown")
     )
-    ip_lock_id = zlib.crc32(client_ip.encode())
+    import hashlib
+
+    ip_lock_id = int.from_bytes(
+        hashlib.sha256(client_ip.encode()).digest()[:8], "little", signed=True
+    )
     await db.execute(text("SELECT pg_advisory_xact_lock(:id)"), {"id": ip_lock_id})
 
     active_jobs_query = (

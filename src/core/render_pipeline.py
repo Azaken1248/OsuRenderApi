@@ -173,12 +173,6 @@ async def execute_render_pipeline(
                                 MAX_UNCOMPRESSED_SIZE = 1024 * 1024 * 1024
                                 total_extracted_size = 0
                                 for member in z.infolist():
-                                    total_extracted_size += member.file_size
-                                    if total_extracted_size > MAX_UNCOMPRESSED_SIZE:
-                                        raise Exception(
-                                            "Decompression bomb detected: uncompressed size exceeds limit."
-                                        )
-
                                     member_path = os.path.abspath(
                                         os.path.join(skin_folder_abs, member.filename)
                                     )
@@ -191,7 +185,30 @@ async def execute_render_pipeline(
                                         raise Exception(
                                             f"Attempted Zip Slip: {member.filename}"
                                         )
-                                    z.extract(member, skin_folder)
+
+                                    if member.is_dir():
+                                        os.makedirs(member_path, exist_ok=True)
+                                        continue
+
+                                    os.makedirs(
+                                        os.path.dirname(member_path), exist_ok=True
+                                    )
+                                    with z.open(member) as source, open(
+                                        member_path, "wb"
+                                    ) as target:
+                                        while True:
+                                            chunk = source.read(8192)
+                                            if not chunk:
+                                                break
+                                            total_extracted_size += len(chunk)
+                                            if (
+                                                total_extracted_size
+                                                > MAX_UNCOMPRESSED_SIZE
+                                            ):
+                                                raise Exception(
+                                                    "Decompression bomb detected: uncompressed size exceeds limit."
+                                                )
+                                            target.write(chunk)
                             log("  Skin extracted successfully.")
                             if assets_commit_fn:
                                 assets_commit_fn()
