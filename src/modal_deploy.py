@@ -27,6 +27,7 @@ image = (
         "unzip danser-0.11.0-linux.zip -d /usr/local/bin/danser",
         "chmod +x /usr/local/bin/danser/danser-cli",
     )
+    .add_local_dir("src", remote_path="/root/src")
 )
 
 app = modal.App("osurender-gpu-worker")
@@ -38,7 +39,6 @@ assets_vol = modal.Volume.from_name("osu-assets", create_if_missing=True)
     image=image,
     gpu="T4",
     volumes={"/mnt/osu_data": assets_vol},
-    mounts=[modal.Mount.from_local_dir("src", remote_path="/root/src")],
     timeout=660,
     secrets=[modal.Secret.from_name("osurender-secrets")],
 )
