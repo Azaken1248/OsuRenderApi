@@ -7,11 +7,19 @@ from slowapi.errors import RateLimitExceeded
 
 from src.core.config import get_settings
 from src.core.limiter import limiter
+from src.core.logging import (
+    setup_logging,
+    request_id_var,
+    generate_request_id,
+)
 from src.api.routes import health, jobs, render, skins, artifacts, view, legacy
 
 import asyncio
+import logging
 from sqlalchemy import text
 from src.core.metrics import queue_depth
+
+logger = logging.getLogger("osurender.api")
 
 
 async def metrics_poll_loop():
@@ -33,6 +41,14 @@ async def metrics_poll_loop():
                 outbox_pending = await db.scalar(
                     text("SELECT COUNT(*) FROM outbox_events WHERE status = 'PENDING'")
                 )
+                outbox_dispatched = await db.scalar(
+                    text(
+                        "SELECT COUNT(*) FROM outbox_events WHERE status = 'DISPATCHED'"
+                    )
+                )
+                outbox_failed = await db.scalar(
+                    text("SELECT COUNT(*) FROM outbox_events WHERE status = 'FAILED'")
+                )
 
                 if queued is not None:
                     queue_depth.labels(status="queued").set(queued)
@@ -41,14 +57,20 @@ async def metrics_poll_loop():
                 if downloading is not None:
                     queue_depth.labels(status="downloading").set(downloading)
 
-                from src.core.metrics import outbox_pending_events
+                from src.core.metrics import (
+                    outbox_pending_events,
+                    outbox_dispatched_events,
+                    outbox_failed_events,
+                )
 
                 if outbox_pending is not None:
                     outbox_pending_events.set(outbox_pending)
+                if outbox_dispatched is not None:
+                    outbox_dispatched_events.set(outbox_dispatched)
+                if outbox_failed is not None:
+                    outbox_failed_events.set(outbox_failed)
         except Exception as e:
-            import logging
-
-            logging.error(f"Error polling metrics: {e}")
+            logger.error(f"Error polling metrics: {e}")
 
         await asyncio.sleep(15)
 
@@ -56,12 +78,14 @@ async def metrics_poll_loop():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
-    print(f"[startup] {settings.app_name} v{settings.app_version}")
-    print(f"[startup] Debug mode: {settings.debug}")
-    print(f"[startup] Database: {settings.database_url.split('@')[-1]}")
-    print(f"[startup] Redis: {settings.redis_url}")
-    print(
-        f"[startup] Storage: {settings.storage_endpoint}/{settings.storage_bucket_name}"
+    setup_logging("api", logging.DEBUG if settings.debug else logging.INFO)
+    logger.info(
+        "Application starting",
+        extra={
+            "app_name": settings.app_name,
+            "version": settings.app_version,
+            "debug": settings.debug,
+        },
     )
 
     metrics_task = asyncio.create_task(metrics_poll_loop())
@@ -72,7 +96,7 @@ async def lifespan(app: FastAPI):
 
     engine = get_engine()
     await engine.dispose()
-    print("[shutdown] Database connections closed.")
+    logger.info("Application shutdown complete")
 
 
 def create_app() -> FastAPI:
@@ -94,14 +118,20 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    @app.middleware("http")
+    async def correlation_id_middleware(request: Request, call_next):
+        rid = request.headers.get("X-Request-ID", generate_request_id())
+        request_id_var.set(rid)
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = rid
+        return response
+
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore
 
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
-        import logging
-
-        logging.exception("Unhandled exception in API route")
+        logger.exception("Unhandled exception in API route")
         settings = get_settings()
         detail = str(exc) if settings.debug else "An internal rendering error occurred."
         return JSONResponse(

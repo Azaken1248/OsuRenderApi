@@ -1,0 +1,121 @@
+{
+  "dashboard": {
+    "title": "OsuRender API - Operations Dashboard",
+    "uid": "osurender-ops",
+    "timezone": "utc",
+    "refresh": "15s",
+    "panels": [
+      {
+        "title": "API Request Rate",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0},
+        "targets": [{"expr": "rate(http_requests_total[5m])", "legendFormat": "{{method}} {{handler}}"}]
+      },
+      {
+        "title": "API Error Rate",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 0},
+        "targets": [{"expr": "rate(http_requests_total{status=~\"5..\"}[5m])", "legendFormat": "{{status}}"}]
+      },
+      {
+        "title": "API P95 Latency",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 0},
+        "targets": [{"expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))", "legendFormat": "P95"}]
+      },
+      {
+        "title": "Queue Depth",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 8},
+        "targets": [{"expr": "queue_depth", "legendFormat": "{{status}}"}]
+      },
+      {
+        "title": "Outbox Events",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 8},
+        "targets": [
+          {"expr": "outbox_pending_events", "legendFormat": "Pending"},
+          {"expr": "outbox_dispatched_events", "legendFormat": "Dispatched"},
+          {"expr": "outbox_failed_events", "legendFormat": "Failed (DLQ)"}
+        ]
+      },
+      {
+        "title": "Dispatch Latency",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 8},
+        "targets": [
+          {"expr": "histogram_quantile(0.50, rate(dispatch_latency_seconds_bucket[5m]))", "legendFormat": "P50"},
+          {"expr": "histogram_quantile(0.95, rate(dispatch_latency_seconds_bucket[5m]))", "legendFormat": "P95"},
+          {"expr": "histogram_quantile(0.99, rate(dispatch_latency_seconds_bucket[5m]))", "legendFormat": "P99"}
+        ]
+      },
+      {
+        "title": "Active Render Workers",
+        "type": "gauge",
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 16},
+        "targets": [{"expr": "active_render_workers"}]
+      },
+      {
+        "title": "Render Duration",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 9, "x": 6, "y": 16},
+        "targets": [
+          {"expr": "histogram_quantile(0.50, rate(render_duration_seconds_bucket[5m]))", "legendFormat": "P50"},
+          {"expr": "histogram_quantile(0.95, rate(render_duration_seconds_bucket[5m]))", "legendFormat": "P95"}
+        ]
+      },
+      {
+        "title": "Render Failures by Phase",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 9, "x": 15, "y": 16},
+        "targets": [{"expr": "rate(render_failures_total[5m])", "legendFormat": "{{reason}}"}]
+      },
+      {
+        "title": "Job Throughput",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 0, "y": 24},
+        "targets": [
+          {"expr": "rate(jobs_completed_total[5m]) * 300", "legendFormat": "Completed/5m"},
+          {"expr": "rate(jobs_failed_total[5m]) * 300", "legendFormat": "Failed/5m"},
+          {"expr": "rate(job_submit_total[5m]) * 300", "legendFormat": "Submitted/5m"}
+        ]
+      },
+      {
+        "title": "Success Rate",
+        "type": "gauge",
+        "gridPos": {"h": 4, "w": 4, "x": 8, "y": 24},
+        "targets": [{"expr": "rate(jobs_completed_total[5m]) / (rate(jobs_completed_total[5m]) + rate(jobs_failed_total[5m]))"}],
+        "fieldConfig": {"defaults": {"unit": "percentunit", "thresholds": {"steps": [{"value": 0, "color": "red"}, {"value": 0.9, "color": "yellow"}, {"value": 0.95, "color": "green"}]}}}
+      },
+      {
+        "title": "Storage Operations",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+        "targets": [
+          {"expr": "rate(storage_failures_total[5m])", "legendFormat": "Failures: {{operation}}"},
+          {"expr": "histogram_quantile(0.95, rate(storage_operation_duration_seconds_bucket[5m]))", "legendFormat": "P95 Latency: {{operation}}"}
+        ]
+      },
+      {
+        "title": "Security Events",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32},
+        "targets": [
+          {"expr": "rate(webhook_failures_total[5m])", "legendFormat": "Webhook: {{reason}}"},
+          {"expr": "rate(rate_limit_violations_total[5m])", "legendFormat": "Rate Limits"},
+          {"expr": "rate(upload_validation_failures_total[5m])", "legendFormat": "Upload: {{type}}"}
+        ]
+      },
+      {
+        "title": "Dispatcher Health",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32},
+        "targets": [
+          {"expr": "rate(listener_reconnects_total[5m])", "legendFormat": "Reconnects: {{reason}}"},
+          {"expr": "rate(stuck_processing_events_total[5m])", "legendFormat": "Stuck Events Rescued"},
+          {"expr": "rate(zombie_jobs_reaped_total[5m])", "legendFormat": "Zombie Jobs Reaped"}
+        ]
+      }
+    ]
+  }
+}

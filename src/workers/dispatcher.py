@@ -4,15 +4,20 @@ import logging
 import random
 import uuid
 import asyncpg
+import time
 
 from src.core.config import get_settings
-from src.db.models import OutboxStatus
-import src.core.metrics
-
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+from src.core.logging import (
+    setup_logging,
+    job_id_var,
+    event_id_var,
+    worker_id_var,
 )
+from src.db.models import OutboxStatus
+
 logger = logging.getLogger("osurender.dispatcher")
+
+DISPATCHER_ID = str(uuid.uuid4())[:8]
 
 
 class OutboxDispatcher:
@@ -23,6 +28,7 @@ class OutboxDispatcher:
 
         self._poll_task = None
         self._sweeper_task = None
+        self._lifecycle_task = None
         self._drain_loop_task = None
         self._drain_event = asyncio.Event()
 
@@ -40,13 +46,9 @@ class OutboxDispatcher:
 
     async def handle_notification(self, connection, pid, channel, payload):
         logger.debug(f"Received notification on {channel} with payload {payload}")
-
         self._drain_event.set()
 
     async def drain_loop(self):
-        """
-        Persistent background task that processes events sequentially when notified.
-        """
         while True:
             try:
                 await self._drain_event.wait()
@@ -63,9 +65,6 @@ class OutboxDispatcher:
                 await asyncio.sleep(5)
 
     async def drain_outbox(self):
-        """
-        Atomically claim and process a batch of outbox events using SKIP LOCKED.
-        """
         if not self.pool:
             return 0
 
@@ -97,6 +96,9 @@ class OutboxDispatcher:
                     event_id = record["id"]
                     payload_str = record["payload"]
                     retry_count = record["retry_count"]
+                    created_at = record["created_at"]
+
+                    event_id_var.set(str(event_id))
 
                     try:
                         payload = (
@@ -107,6 +109,7 @@ class OutboxDispatcher:
                         job_id = payload.get("job_id")
 
                         if job_id:
+                            job_id_var.set(job_id)
 
                             await asyncio.to_thread(process_render_job.delay, job_id)
 
@@ -114,9 +117,23 @@ class OutboxDispatcher:
                                 "UPDATE outbox_events SET status = 'DISPATCHED' WHERE id = $1",
                                 event_id,
                             )
-                            from src.core.metrics import outbox_dispatch_total
+                            from src.core.metrics import (
+                                outbox_dispatch_total,
+                                dispatch_latency_seconds,
+                            )
 
                             outbox_dispatch_total.inc()
+                            if created_at:
+                                from datetime import datetime, timezone
+
+                                now = datetime.now(timezone.utc)
+                                if created_at.tzinfo is None:
+                                    from datetime import timezone as tz
+
+                                    created_at = created_at.replace(tzinfo=tz.utc)
+                                latency = (now - created_at).total_seconds()
+                                dispatch_latency_seconds.observe(latency)
+
                             logger.info(f"Dispatched job {job_id} successfully")
                     except Exception as e:
                         logger.error(
@@ -139,6 +156,9 @@ class OutboxDispatcher:
                                 str(e),
                                 event_id,
                             )
+                    finally:
+                        event_id_var.set("")
+                        job_id_var.set("")
                 return len(records)
 
         except Exception as e:
@@ -146,9 +166,6 @@ class OutboxDispatcher:
             return 0
 
     async def safety_poll(self):
-        """
-        Polls the outbox every 60 seconds just in case notifications are lost.
-        """
         while True:
             try:
                 await asyncio.sleep(60)
@@ -194,9 +211,6 @@ class OutboxDispatcher:
             return 0
 
     async def stuck_processing_sweeper(self):
-        """
-        Recovers events that got stuck in PROCESSING due to a crash.
-        """
         while True:
             try:
                 await asyncio.sleep(300)
@@ -265,7 +279,7 @@ class OutboxDispatcher:
                     self._poll_task.cancel()
                 if self._sweeper_task:
                     self._sweeper_task.cancel()
-                if hasattr(self, "_lifecycle_task") and self._lifecycle_task:
+                if self._lifecycle_task:
                     self._lifecycle_task.cancel()
                 if self._drain_loop_task:
                     self._drain_loop_task.cancel()
@@ -285,6 +299,10 @@ class OutboxDispatcher:
 if __name__ == "__main__":
     import os
     from prometheus_client import start_http_server
+
+    setup_logging("dispatcher")
+    worker_id_var.set(DISPATCHER_ID)
+    logger.info(f"Dispatcher starting with ID {DISPATCHER_ID}")
 
     start_http_server(8728)
 

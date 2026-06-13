@@ -1,13 +1,21 @@
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+import hmac
+import hashlib
+import json
+import time
+import logging
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel
 from src.api.schemas import ArtifactLinks, JobListResponse, JobStatusResponse
-from src.db.models import Job
+from src.db.models import Job, JobStatus
 from src.db.session import get_db
+from src.api.utils import serialize_error
+from src.core.config import get_settings
 
 router = APIRouter()
-from src.api.utils import serialize_error
+logger = logging.getLogger("osurender.api")
 
 
 def _job_to_response(job: Job) -> JobStatusResponse:
@@ -84,10 +92,6 @@ async def list_jobs(
     )
 
 
-from pydantic import BaseModel
-from src.db.models import JobStatus
-
-
 class WebhookPayload(BaseModel):
     success: bool
     video_key: str = ""
@@ -97,15 +101,6 @@ class WebhookPayload(BaseModel):
     pp: float = 0.0
     timestamp: int = 0
     nonce: str = ""
-
-
-import hmac
-import hashlib
-from fastapi import Request
-from src.core.config import get_settings
-
-
-import json
 
 
 @router.post(
@@ -118,11 +113,14 @@ async def job_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
+    from src.core.metrics import webhook_failures_total
+
     settings = get_settings()
     body = await request.body()
     if settings.webhook_secret:
         signature = request.headers.get("X-Signature")
         if not signature:
+            webhook_failures_total.labels(reason="missing_signature").inc()
             raise HTTPException(status_code=401, detail="Missing signature")
 
         expected_sig = hmac.new(
@@ -130,17 +128,18 @@ async def job_webhook(
         ).hexdigest()
 
         if not hmac.compare_digest(signature, expected_sig):
+            webhook_failures_total.labels(reason="invalid_signature").inc()
             raise HTTPException(status_code=401, detail="Invalid signature")
-
-    import time
 
     try:
         payload_dict = json.loads(body)
         payload = WebhookPayload(**payload_dict)
     except Exception:
+        webhook_failures_total.labels(reason="invalid_body").inc()
         raise HTTPException(status_code=422, detail="Invalid JSON body")
 
     if payload.timestamp and abs(time.time() - payload.timestamp) > 300:
+        webhook_failures_total.labels(reason="expired").inc()
         raise HTTPException(
             status_code=400, detail="Webhook payload expired (replay protection)"
         )
@@ -153,11 +152,13 @@ async def job_webhook(
     if not payload.success:
         job.status = JobStatus.FAILED
         job.error_message = payload.error
+        logger.warning(f"Webhook reported failure for job {job_id}: {payload.error}")
     else:
         job.status = JobStatus.COMPLETED
         job.progress = 100.0
         job.video_storage_key = payload.video_key
         job.thumb_storage_key = payload.thumb_key
+        logger.info(f"Webhook confirmed completion for job {job_id}")
 
         if payload.pp > 0:
             c_dict = dict(job.config)
@@ -165,8 +166,6 @@ async def job_webhook(
                 c_dict["replay_stats"] = {}
             c_dict["replay_stats"]["pp"] = payload.pp
             job.config = c_dict
-
-    from sqlalchemy import text
 
     await db.execute(
         text(

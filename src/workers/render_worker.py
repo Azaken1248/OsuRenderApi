@@ -4,6 +4,8 @@ import json
 import uuid
 import httpx
 import tempfile
+import logging
+import time
 from pathlib import Path
 
 from osrparse import Replay
@@ -13,9 +15,11 @@ from celery import shared_task
 from src.core.celery_app import celery_app
 from src.core.storage import storage_client
 from src.core.config import get_settings
+from src.core.logging import job_id_var, worker_id_var, setup_logging
 from src.db.models import Job, JobStatus
 
 settings = get_settings()
+logger = logging.getLogger("osurender.worker")
 
 DANSER_BIN = os.environ.get("DANSER_BIN", "danser-cli")
 SONGS_DIR = os.environ.get("SONGS_DIR", "/tmp/osu_data/Songs")
@@ -49,13 +53,17 @@ from src.core.metrics import (
     render_failures_total,
     jobs_completed_total,
     jobs_failed_total,
+    storage_operation_duration_seconds,
+    storage_failures_total,
 )
-import time
 
 
 async def _process_render_job(job_id: str):
+    job_id_var.set(job_id)
+    worker_id_var.set(f"celery-{os.getpid()}")
     active_render_workers.inc()
     start_time = time.monotonic()
+    logger.info(f"Starting render job {job_id}")
     try:
         factory = get_session_factory()
         async with factory() as db:
@@ -67,11 +75,13 @@ async def _process_render_job(job_id: str):
             )
             res = await db.execute(update_stmt)
             if getattr(res, "rowcount", 0) == 0:
+                logger.warning(f"Job {job_id} not in QUEUED state, aborting")
                 return "aborted"
 
             result = await db.execute(select(Job).where(Job.id == uuid.UUID(job_id)))
             job: Job | None = result.scalar_one_or_none()
             if not job:
+                logger.warning(f"Job {job_id} not found, aborting")
                 return "aborted"
 
         try:
@@ -81,11 +91,19 @@ async def _process_render_job(job_id: str):
             with tempfile.TemporaryDirectory() as tmpdir:
                 current_phase = "download"
                 osr_path = os.path.join(tmpdir, "replay.osr")
-                storage_client.client.fget_object(
-                    bucket_name=storage_client.bucket,
-                    object_name=job.replay_storage_key,
-                    file_path=osr_path,
-                )
+                dl_start = time.monotonic()
+                try:
+                    storage_client.client.fget_object(
+                        bucket_name=storage_client.bucket,
+                        object_name=job.replay_storage_key,
+                        file_path=osr_path,
+                    )
+                    storage_operation_duration_seconds.labels(
+                        operation="download_replay"
+                    ).observe(time.monotonic() - dl_start)
+                except Exception as e:
+                    storage_failures_total.labels(operation="download_replay").inc()
+                    raise
 
                 replay = None
                 try:
@@ -148,6 +166,7 @@ async def _process_render_job(job_id: str):
 
                 job.status = JobStatus.RENDERING
                 await db.commit()
+                logger.info(f"Job {job_id} entering render phase")
 
                 target_name = f"render_{job_id}"
 
@@ -229,6 +248,9 @@ async def _process_render_job(job_id: str):
                     job.modal_call_id = function_call.object_id
                     await db.commit()
 
+                    logger.info(
+                        f"Job {job_id} dispatched to Modal: {function_call.object_id}"
+                    )
                     return f"Dispatched to Modal: {function_call.object_id}"
 
                 else:
@@ -284,15 +306,13 @@ async def _process_render_job(job_id: str):
                     job.progress = 100.0
                     await db.commit()
                     jobs_completed_total.inc()
+                    logger.info(f"Job {job_id} completed successfully")
 
         except Exception as e:
             render_failures_total.labels(
                 reason=locals().get("current_phase", "unknown")
             ).inc()
             if "job" in locals() and job is not None:
-                import logging
-
-                logger = logging.getLogger("osurender.worker")
                 logger.exception(f"Render failed for job {job_id}")
 
                 job.status = JobStatus.FAILED
@@ -301,7 +321,11 @@ async def _process_render_job(job_id: str):
                 jobs_failed_total.inc()
     finally:
         active_render_workers.dec()
-        render_duration_seconds.observe(time.monotonic() - start_time)
+        duration = time.monotonic() - start_time
+        render_duration_seconds.observe(duration)
+        logger.info(f"Job {job_id} finished in {duration:.2f}s")
+        job_id_var.set("")
+        worker_id_var.set("")
 
 
 @celery_app.task(
@@ -318,6 +342,7 @@ def process_render_job(self, job_id: str):
 async def _reap_zombie_jobs():
     from src.db.session import get_session_factory
     from src.db.models import Job, JobStatus
+    from src.core.metrics import zombie_jobs_reaped_total
     from sqlalchemy import select, update
     from datetime import datetime, timezone, timedelta
 
@@ -338,7 +363,10 @@ async def _reap_zombie_jobs():
                 error_message="Job timed out and was reaped by the system.",
             )
         )
-        await db.execute(query1)
+        result1 = await db.execute(query1)
+        if getattr(result1, "rowcount", 0) > 0:
+            zombie_jobs_reaped_total.inc(result1.rowcount)
+            logger.warning(f"Reaped {result1.rowcount} timed-out jobs")
 
         query2 = (
             update(Job)
@@ -359,7 +387,9 @@ async def _reap_zombie_jobs():
                 error_message="Job failed to dispatch after 3 retries.",
             )
         )
-        await db.execute(query3)
+        result3 = await db.execute(query3)
+        if getattr(result3, "rowcount", 0) > 0:
+            zombie_jobs_reaped_total.inc(result3.rowcount)
 
         await db.commit()
 

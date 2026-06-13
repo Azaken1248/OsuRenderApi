@@ -1,0 +1,162 @@
+groups:
+  - name: osurender_queue
+    rules:
+      - alert: QueueDepthHigh
+        expr: queue_depth{status="queued"} > 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Render queue depth is high"
+          description: "Queue has {{ $value }} queued jobs for more than 5 minutes."
+
+      - alert: QueueDepthCritical
+        expr: queue_depth{status="queued"} > 90
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Render queue is near capacity"
+          description: "Queue has {{ $value }} queued jobs. Max is 100."
+
+      - alert: OutboxPendingHigh
+        expr: outbox_pending_events > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Outbox has pending events"
+          description: "{{ $value }} events pending dispatch for more than 5 minutes."
+
+      - alert: OutboxDispatchedStale
+        expr: outbox_dispatched_events > 5
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Dispatched events not completing"
+          description: "{{ $value }} events dispatched but not confirmed by workers."
+
+      - alert: DeadLetterQueueGrowing
+        expr: outbox_failed_events > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Dead letter queue has failed events"
+          description: "{{ $value }} failed events require operator attention."
+
+  - name: osurender_workers
+    rules:
+      - alert: NoActiveWorkers
+        expr: active_render_workers == 0 and queue_depth{status="queued"} > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No active render workers"
+          description: "Queue has jobs but no workers are processing."
+
+      - alert: HighRenderFailureRate
+        expr: rate(render_failures_total[5m]) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High render failure rate"
+          description: "Render failures exceeding 0.5/sec for 5 minutes."
+
+      - alert: RenderDurationHigh
+        expr: histogram_quantile(0.95, rate(render_duration_seconds_bucket[15m])) > 300
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P95 render duration is high"
+          description: "95th percentile render time is {{ $value }}s."
+
+  - name: osurender_api
+    rules:
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API error rate above 5%"
+          description: "{{ $value | humanizePercentage }} of requests are failing."
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API P95 latency above 5s"
+          description: "95th percentile latency is {{ $value }}s."
+
+      - alert: WebhookFailuresHigh
+        expr: rate(webhook_failures_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Webhook authentication failures detected"
+          description: "{{ $value }}/sec webhook failures."
+
+      - alert: RateLimitViolationsHigh
+        expr: rate(rate_limit_violations_total[5m]) > 1
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "Rate limit violations increasing"
+          description: "{{ $value }}/sec rate limit hits."
+
+  - name: osurender_storage
+    rules:
+      - alert: StorageFailures
+        expr: rate(storage_failures_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Storage operation failures"
+          description: "Storage {{ $labels.operation }} failures occurring."
+
+  - name: osurender_database
+    rules:
+      - alert: DispatcherReconnecting
+        expr: rate(listener_reconnects_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Dispatcher reconnecting frequently"
+          description: "Dispatcher reconnecting due to {{ $labels.reason }}."
+
+  - name: osurender_slo
+    rules:
+      - record: osurender:api_availability:ratio_5m
+        expr: 1 - (rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]))
+
+      - record: osurender:render_success_rate:ratio_5m
+        expr: rate(jobs_completed_total[5m]) / (rate(jobs_completed_total[5m]) + rate(jobs_failed_total[5m]))
+
+      - alert: SLOApiAvailabilityBreach
+        expr: osurender:api_availability:ratio_5m < 0.999
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API availability SLO breach"
+          description: "API availability is {{ $value | humanizePercentage }}, below 99.9% SLO."
+
+      - alert: SLODispatchLatencyBreach
+        expr: histogram_quantile(0.99, rate(dispatch_latency_seconds_bucket[5m])) > 60
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Dispatch latency SLO breach"
+          description: "P99 dispatch latency is {{ $value }}s, exceeding 60s SLO target."
