@@ -62,23 +62,25 @@ async def _process_render_job(job_id: str):
     logger.info(f"Starting render job {job_id}")
     try:
         factory = get_session_factory()
-        async with factory() as db:
+        db = factory()
 
-            update_stmt = (
-                update(Job)
-                .where(Job.id == uuid.UUID(job_id), Job.status == JobStatus.QUEUED)
-                .values(status=JobStatus.DOWNLOADING)
-            )
-            res = await db.execute(update_stmt)
-            if getattr(res, "rowcount", 0) == 0:
-                logger.warning(f"Job {job_id} not in QUEUED state, aborting")
-                return "aborted"
+        update_stmt = (
+            update(Job)
+            .where(Job.id == uuid.UUID(job_id), Job.status == JobStatus.QUEUED)
+            .values(status=JobStatus.DOWNLOADING)
+        )
+        res = await db.execute(update_stmt)
+        if getattr(res, "rowcount", 0) == 0:
+            logger.warning(f"Job {job_id} not in QUEUED state, aborting")
+            await db.close()
+            return "aborted"
 
-            result = await db.execute(select(Job).where(Job.id == uuid.UUID(job_id)))
-            job: Job | None = result.scalar_one_or_none()
-            if not job:
-                logger.warning(f"Job {job_id} not found, aborting")
-                return "aborted"
+        result = await db.execute(select(Job).where(Job.id == uuid.UUID(job_id)))
+        job: Job | None = result.scalar_one_or_none()
+        if not job:
+            logger.warning(f"Job {job_id} not found, aborting")
+            await db.close()
+            return "aborted"
 
         try:
             await db.commit()
@@ -316,6 +318,8 @@ async def _process_render_job(job_id: str):
                 await db.commit()
                 jobs_failed_total.inc()
     finally:
+        if "db" in locals():
+            await db.close()
         active_render_workers.dec()
         duration = time.monotonic() - start_time
         render_duration_seconds.observe(duration)
