@@ -4,15 +4,13 @@ services:
     container_name: osurender-postgres
     command: -c max_connections=200
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:?error_missing_postgres_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?error_missing_postgres_password}
+      POSTGRES_USER: ${POSTGRES_USER:-osurender}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-osurender}
       POSTGRES_DB: ${POSTGRES_DB:-osurender}
-    ports:
-      - "${POSTGRES_PORT:-5434}:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER}" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -21,177 +19,100 @@ services:
   redis:
     image: redis:7-alpine
     container_name: osurender-redis
-    ports:
-      - "${REDIS_PORT:-6380}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 5s
       retries: 5
     restart: unless-stopped
-
-  minio:
-    image: minio/minio:latest
-    container_name: osurender-minio
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?error_missing_user}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?error_missing_password}
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio_data:/data
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  minio-init:
-    image: minio/mc:latest
-    container_name: osurender-minio-init
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-        mc alias set local http://minio:9000 ${MINIO_ROOT_USER:?error_missing_user} ${MINIO_ROOT_PASSWORD:?error_missing_password};
-        mc mb local/osurender --ignore-existing;
-        mc anonymous set download local/osurender/videos;
-        mc anonymous set download local/osurender/thumbnails;
-        echo 'Bucket initialization complete.';
-      "
-    restart: "no"
 
   api:
     build: .
     container_name: osurender-api
     ports:
-      - "${APP_PORT:-8000}:${APP_PORT:-8000}"
+      - "8727:8727"
     mem_limit: 1g
     cpus: 1
+    env_file: .env
     environment:
-      - DEBUG=${DEBUG:-False}
       - WORKER_TYPE=api
-      - APP_HOST=${APP_HOST:-0.0.0.0}
-      - APP_PORT=${APP_PORT:-8000}
-      - DATABASE_URL=${DATABASE_URL:?error_missing_database_url}
-      - DATABASE_URL_SYNC=${DATABASE_URL_SYNC:?error_missing_database_url_sync}
-      - REDIS_URL=${REDIS_URL:?error_missing_redis_url}
-      - STORAGE_ENDPOINT=${STORAGE_ENDPOINT:-minio:9000}
-      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:?error_missing_storage_access_key}
-      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY:?error_missing_storage_secret_key}
-      - STORAGE_BUCKET_NAME=${STORAGE_BUCKET_NAME:-osurender}
-      - STORAGE_USE_SSL=${STORAGE_USE_SSL:-false}
-      - USE_MODAL_GPU=${USE_MODAL_GPU:-0}
-      - MODAL_TOKEN_ID=${MODAL_TOKEN_ID:?error_missing_modal_token_id}
-      - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET:?error_missing_modal_token_secret}
-      - OSU_API_KEY=${OSU_API_KEY}
-      - API_BASE_URL=${API_BASE_URL:-http://localhost:8000}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-    restart: unless-stopped
-
-  worker:
-    build: .
-    container_name: osurender-worker
-    ports:
-      - "8729:8729"
-    mem_limit: 1g
-    cpus: 1
-    environment:
-      - DEBUG=${DEBUG:-False}
-      - WORKER_TYPE=celery
       - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus_multiproc
-      - DATABASE_URL=${DATABASE_URL:?error_missing_database_url}
-      - DATABASE_URL_SYNC=${DATABASE_URL_SYNC:?error_missing_database_url_sync}
-      - REDIS_URL=${REDIS_URL:?error_missing_redis_url}
-      - STORAGE_ENDPOINT=${STORAGE_ENDPOINT:-minio:9000}
-      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:?error_missing_storage_access_key}
-      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY:?error_missing_storage_secret_key}
-      - STORAGE_BUCKET_NAME=${STORAGE_BUCKET_NAME:-osurender}
-      - STORAGE_USE_SSL=${STORAGE_USE_SSL:-false}
-      - USE_MODAL_GPU=${USE_MODAL_GPU:-0}
-      - MODAL_TOKEN_ID=${MODAL_TOKEN_ID:?error_missing_modal_token_id}
-      - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET:?error_missing_modal_token_secret}
-      - OSU_API_KEY=${OSU_API_KEY}
-      - API_BASE_URL=${API_BASE_URL:-http://localhost:8000}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-    restart: unless-stopped
-
-  worker-beat:
-    build: .
-    container_name: osurender-worker-beat
-    environment:
-      - DEBUG=${DEBUG:-False}
-      - WORKER_TYPE=beat
-      - DATABASE_URL=${DATABASE_URL:?error_missing_database_url}
-      - DATABASE_URL_SYNC=${DATABASE_URL_SYNC:?error_missing_database_url_sync}
-      - REDIS_URL=${REDIS_URL:?error_missing_redis_url}
-      - STORAGE_ENDPOINT=${STORAGE_ENDPOINT:-minio:9000}
-      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:?error_missing_storage_access_key}
-      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY:?error_missing_storage_secret_key}
-      - STORAGE_BUCKET_NAME=${STORAGE_BUCKET_NAME:-osurender}
-      - STORAGE_USE_SSL=${STORAGE_USE_SSL:-false}
-      - USE_MODAL_GPU=${USE_MODAL_GPU:-0}
-      - MODAL_TOKEN_ID=${MODAL_TOKEN_ID:?error_missing_modal_token_id}
-      - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET:?error_missing_modal_token_secret}
-      - OSU_API_KEY=${OSU_API_KEY}
-      - API_BASE_URL=${API_BASE_URL:-http://localhost:8000}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio:
         condition: service_healthy
     restart: unless-stopped
 
   dispatcher:
     build: .
     container_name: osurender-dispatcher
-    ports:
-      - "8728:8728"
-    mem_limit: 1g
-    cpus: 1
+    mem_limit: 512m
+    cpus: 0.5
+    env_file: .env
     environment:
-      - DEBUG=${DEBUG:-False}
       - WORKER_TYPE=dispatcher
-      - DATABASE_URL=${DATABASE_URL:?error_missing_database_url}
-      - DATABASE_URL_SYNC=${DATABASE_URL_SYNC:?error_missing_database_url_sync}
-      - REDIS_URL=${REDIS_URL:?error_missing_redis_url}
-      - STORAGE_ENDPOINT=${STORAGE_ENDPOINT:-minio:9000}
-      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:?error_missing_storage_access_key}
-      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY:?error_missing_storage_secret_key}
-      - STORAGE_BUCKET_NAME=${STORAGE_BUCKET_NAME:-osurender}
-      - STORAGE_USE_SSL=${STORAGE_USE_SSL:-false}
-      - USE_MODAL_GPU=${USE_MODAL_GPU:-0}
-      - MODAL_TOKEN_ID=${MODAL_TOKEN_ID:?error_missing_modal_token_id}
-      - MODAL_TOKEN_SECRET=${MODAL_TOKEN_SECRET:?error_missing_modal_token_secret}
-      - OSU_API_KEY=${OSU_API_KEY}
-      - API_BASE_URL=${API_BASE_URL:-http://localhost:8000}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio:
+    restart: unless-stopped
+
+  worker:
+    build: .
+    container_name: osurender-worker
+    mem_limit: 512m
+    cpus: 0.5
+    env_file: .env
+    environment:
+      - WORKER_TYPE=celery
+      - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus_multiproc
+    depends_on:
+      postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker-beat:
+    build: .
+    container_name: osurender-worker-beat
+    mem_limit: 256m
+    cpus: 0.25
+    env_file: .env
+    environment:
+      - WORKER_TYPE=beat
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: osurender-prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: osurender-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
     restart: unless-stopped
 
 volumes:
@@ -199,5 +120,7 @@ volumes:
     driver: local
   redis_data:
     driver: local
-  minio_data:
+  prometheus_data:
+    driver: local
+  grafana_data:
     driver: local
