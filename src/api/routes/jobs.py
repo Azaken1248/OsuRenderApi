@@ -95,6 +95,8 @@ class WebhookPayload(BaseModel):
     log_key: str = ""
     error: str = ""
     pp: float = 0.0
+    timestamp: int = 0
+    nonce: str = ""
 
 
 import hmac
@@ -130,11 +132,18 @@ async def job_webhook(
         if not hmac.compare_digest(signature, expected_sig):
             raise HTTPException(status_code=401, detail="Invalid signature")
 
+    import time
+
     try:
         payload_dict = json.loads(body)
         payload = WebhookPayload(**payload_dict)
     except Exception:
         raise HTTPException(status_code=422, detail="Invalid JSON body")
+
+    if payload.timestamp and abs(time.time() - payload.timestamp) > 300:
+        raise HTTPException(
+            status_code=400, detail="Webhook payload expired (replay protection)"
+        )
 
     result = await db.execute(select(Job).where(Job.id == job_id))
     job = result.scalar_one_or_none()

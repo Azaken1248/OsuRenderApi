@@ -86,6 +86,9 @@ async def gpu_render_task(
         import hashlib
         import json
 
+        import time
+        import uuid
+
         try:
             payload = {
                 "success": result.get("success", False),
@@ -94,6 +97,8 @@ async def gpu_render_task(
                 "log_key": result.get("log_key", ""),
                 "error": result.get("error", ""),
                 "pp": result.get("pp", 0.0),
+                "timestamp": int(time.time()),
+                "nonce": str(uuid.uuid4()),
             }
             body = json.dumps(payload).encode()
             headers = {}

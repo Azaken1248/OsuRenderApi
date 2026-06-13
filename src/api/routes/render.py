@@ -153,6 +153,24 @@ async def submit_render(
     job_id = uuid.uuid4()
     replay_key = f"replays/{job_id}/replay.osr"
 
+    try:
+        storage_client.upload_file(
+            object_name=replay_key,
+            data=replay.file,
+            length=file_size,
+            content_type=replay.content_type or "application/octet-stream",
+        )
+    except Exception as e:
+        import logging
+
+        logger = logging.getLogger("osurender.api")
+        logger.exception(f"Failed to upload replay file for job {job_id}")
+
+        raise HTTPException(
+            status_code=500,
+            detail="An internal storage error occurred during upload. Please try again.",
+        )
+
     job = Job(
         id=job_id,
         status=JobStatus.QUEUED,
@@ -172,29 +190,6 @@ async def submit_render(
     await db.commit()
     await db.refresh(job)
     job_submit_total.inc()
-
-    try:
-        storage_client.upload_file(
-            object_name=replay_key,
-            data=replay.file,
-            length=file_size,
-            content_type=replay.content_type or "application/octet-stream",
-        )
-    except Exception as e:
-        import logging
-
-        logger = logging.getLogger("osurender.api")
-        logger.exception(f"Failed to upload replay file for job {job.id}")
-
-        job.status = JobStatus.FAILED
-        job.error_message = "Failed to store replay file in backend storage."
-        await db.commit()
-        jobs_failed_total.inc()
-
-        raise HTTPException(
-            status_code=500,
-            detail="An internal storage error occurred during upload. Please try again.",
-        )
 
     return JobCreatedResponse(
         job_id=job.id,
