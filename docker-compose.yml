@@ -54,6 +54,7 @@ services:
     env_file: .env
     environment:
       - WORKER_TYPE=dispatcher
+      - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus_multiproc
     depends_on:
       postgres:
         condition: service_healthy
@@ -85,6 +86,7 @@ services:
     env_file: .env
     environment:
       - WORKER_TYPE=beat
+      - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus_multiproc
     depends_on:
       postgres:
         condition: service_healthy
