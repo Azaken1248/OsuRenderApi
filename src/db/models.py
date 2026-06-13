@@ -30,6 +30,7 @@ class JobStatus(str, enum.Enum):
 class OutboxStatus(str, enum.Enum):
     PENDING = "PENDING"
     PROCESSING = "PROCESSING"
+    DISPATCHED = "DISPATCHED"
     PROCESSED = "PROCESSED"
     FAILED = "FAILED"
 

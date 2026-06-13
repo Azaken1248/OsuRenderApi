@@ -111,7 +111,7 @@ class OutboxDispatcher:
                             await asyncio.to_thread(process_render_job.delay, job_id)
 
                             await connection.execute(
-                                "UPDATE outbox_events SET status = 'PROCESSED', processed_at = NOW() WHERE id = $1",
+                                "UPDATE outbox_events SET status = 'DISPATCHED' WHERE id = $1",
                                 event_id,
                             )
                             from src.core.metrics import outbox_dispatch_total
@@ -167,14 +167,14 @@ class OutboxDispatcher:
         query = """
         WITH stuck AS (
             SELECT id, retry_count FROM outbox_events 
-            WHERE status = 'PROCESSING' 
-            AND processing_started_at < NOW() - INTERVAL '5 minutes'
+            WHERE (status = 'PROCESSING' AND processing_started_at < NOW() - INTERVAL '5 minutes')
+               OR (status = 'DISPATCHED' AND processing_started_at < NOW() - INTERVAL '60 minutes')
         )
         UPDATE outbox_events 
         SET 
             status = CASE WHEN retry_count >= 3 THEN 'FAILED' ELSE 'PENDING' END::outbox_status,
             retry_count = CASE WHEN retry_count >= 3 THEN retry_count ELSE retry_count + 1 END,
-            last_error = CASE WHEN retry_count >= 3 THEN 'Stuck in PROCESSING state too many times' ELSE last_error END
+            last_error = CASE WHEN retry_count >= 3 THEN 'Stuck in PROCESSING or DISPATCHED state too many times' ELSE last_error END
         WHERE id IN (SELECT id FROM stuck)
         RETURNING id;
         """

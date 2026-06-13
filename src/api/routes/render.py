@@ -92,6 +92,9 @@ async def submit_render(
         .where(Job.status.in_([JobStatus.RENDERING, JobStatus.DOWNLOADING]))
     )
 
+    global_lock_id = 1
+    await db.execute(text("SELECT pg_advisory_xact_lock(:id)"), {"id": global_lock_id})
+
     queued_count = await db.scalar(global_queued_query)
     rendering_count = await db.scalar(global_rendering_query)
 

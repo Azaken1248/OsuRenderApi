@@ -166,5 +166,13 @@ async def job_webhook(
             c_dict["replay_stats"]["pp"] = payload.pp
             job.config = c_dict
 
+    from sqlalchemy import text
+
+    await db.execute(
+        text(
+            "UPDATE outbox_events SET status='PROCESSED', processed_at=NOW() WHERE payload->>'job_id' = :job_id"
+        ),
+        {"job_id": str(job_id)},
+    )
     await db.commit()
     return {"status": "ok"}
