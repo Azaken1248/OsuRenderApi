@@ -64,5 +64,6 @@ stuck_processing_events_total = Counter(
 # Active Workers
 active_render_workers = Gauge(
     "active_render_workers",
-    "Current number of active render workers"
+    "Current number of active render workers",
+    multiprocess_mode="livesum"
 )
