@@ -84,6 +84,22 @@ async def execute_render_pipeline(
             if not os.path.exists(osu_skins):
                 os.symlink(skins_dir, osu_skins)
 
+            danser_dir = os.path.dirname(danser_bin)
+            danser_osu = os.path.join(danser_dir, ".osu")
+            os.makedirs(danser_osu, exist_ok=True)
+            
+            danser_osu_songs = os.path.join(danser_osu, "Songs")
+            if os.path.exists(danser_osu_songs) and not os.path.islink(danser_osu_songs):
+                shutil.rmtree(danser_osu_songs)
+            if not os.path.exists(danser_osu_songs):
+                os.symlink(songs_dir, danser_osu_songs)
+                
+            danser_osu_skins = os.path.join(danser_osu, "Skins")
+            if os.path.exists(danser_osu_skins) and not os.path.islink(danser_osu_skins):
+                shutil.rmtree(danser_osu_skins)
+            if not os.path.exists(danser_osu_skins):
+                os.symlink(skins_dir, danser_osu_skins)
+
             with tempfile.TemporaryDirectory() as tmpdir:
                 osr_path = os.path.join(tmpdir, "replay.osr")
                 log(f"Downloading replay: {replay_key}")
