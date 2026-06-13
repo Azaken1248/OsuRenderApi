@@ -36,4 +36,4 @@ modal
 jinja2>=3.1.5
 aioboto3
 prometheus-fastapi-instrumentator==7.0.0
-prometheus-client==0.20.0
+prometheus-client==0.25.0
