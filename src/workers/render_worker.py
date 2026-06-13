@@ -54,7 +54,6 @@ async def fetch_beatmap_with_backoff(
     return None
 
 
-
 async def _process_render_job(job_id: str):
     job_id_var.set(job_id)
     worker_id_var.set(f"celery-{os.getpid()}")

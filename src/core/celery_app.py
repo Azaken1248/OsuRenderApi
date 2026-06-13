@@ -20,6 +20,7 @@ celery_app.conf.update(
     task_track_started=True,
 )
 
+
 @celeryd_init.connect
 def start_metrics_server(**kwargs):
     import os
