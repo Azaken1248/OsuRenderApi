@@ -27,6 +27,11 @@ render_failures_total = Counter(
 )
 
 # Job Outcomes
+job_submit_total = Counter(
+    "job_submit_total",
+    "Total number of jobs successfully accepted by the API"
+)
+
 jobs_completed_total = Counter(
     "jobs_completed_total",
     "Total number of jobs that successfully completed rendering"

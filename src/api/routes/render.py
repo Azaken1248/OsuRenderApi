@@ -7,6 +7,7 @@ from src.core.limiter import limiter
 from src.core.storage import storage_client
 from src.db.models import Job, JobStatus, OutboxEvent, OutboxStatus
 from src.db.session import get_db
+from src.core.metrics import job_submit_total, jobs_failed_total
 import zlib
 from sqlalchemy import select, func, text
 router = APIRouter()
@@ -146,6 +147,7 @@ async def submit_render(
     db.add(outbox_event)
     await db.commit()
     await db.refresh(job)
+    job_submit_total.inc()
     
     # Upload S3 file AFTER commit to prevent orphaned objects on DB transaction failure
     # If this fails, the job will eventually fail out in the worker.
@@ -164,6 +166,7 @@ async def submit_render(
         job.status = JobStatus.FAILED
         job.error_message = "Failed to store replay file in backend storage."
         await db.commit()
+        jobs_failed_total.inc()
         
         raise HTTPException(status_code=500, detail="An internal storage error occurred during upload. Please try again.")
 
