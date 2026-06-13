@@ -19,11 +19,22 @@ render_duration_seconds = Histogram(
     "Time taken to render a job in seconds"
 )
 
-# Render Failures
+# Render Failures (Pipeline execution exceptions)
 render_failures_total = Counter(
     "render_failures_total",
-    "Total number of failed render jobs",
+    "Total number of failed render pipeline executions",
     ["reason"]
+)
+
+# Job Outcomes
+jobs_completed_total = Counter(
+    "jobs_completed_total",
+    "Total number of jobs that successfully completed rendering"
+)
+
+jobs_failed_total = Counter(
+    "jobs_failed_total",
+    "Total number of jobs that failed and were marked as failed"
 )
 
 # Outbox Dispatch

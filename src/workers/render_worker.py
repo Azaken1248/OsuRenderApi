@@ -39,7 +39,7 @@ async def fetch_beatmap_with_backoff(client: httpx.AsyncClient, h: str, max_retr
     return None
 
 from src.db.session import get_session_factory
-from src.core.metrics import active_render_workers, render_duration_seconds, render_failures_total
+from src.core.metrics import active_render_workers, render_duration_seconds, render_failures_total, jobs_completed_total, jobs_failed_total
 import time
 
 async def _process_render_job(job_id: str):
@@ -246,6 +246,7 @@ async def _process_render_job(job_id: str):
                     job.status = JobStatus.COMPLETED
                     job.progress = 100.0
                     await db.commit()
+                    jobs_completed_total.inc()
 
         except Exception as e:
             render_failures_total.labels(reason=locals().get("current_phase", "unknown")).inc()
@@ -257,6 +258,7 @@ async def _process_render_job(job_id: str):
                 job.status = JobStatus.FAILED
                 job.error_message = str(e)
                 await db.commit()
+                jobs_failed_total.inc()
     finally:
         active_render_workers.dec()
         render_duration_seconds.observe(time.monotonic() - start_time)

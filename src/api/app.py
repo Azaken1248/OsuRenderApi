@@ -19,10 +19,10 @@ async def metrics_poll_loop():
     while True:
         try:
             async with AsyncSessionLocal() as db:
-                queued = await db.scalar(text("SELECT count(1) FROM (SELECT 1 FROM jobs WHERE status = 'queued' LIMIT 10000) as t"))
-                rendering = await db.scalar(text("SELECT count(1) FROM (SELECT 1 FROM jobs WHERE status = 'rendering' LIMIT 10000) as t"))
-                downloading = await db.scalar(text("SELECT count(1) FROM (SELECT 1 FROM jobs WHERE status = 'downloading' LIMIT 10000) as t"))
-                outbox_pending = await db.scalar(text("SELECT count(1) FROM (SELECT 1 FROM outbox_events WHERE status = 'PENDING' LIMIT 10000) as t"))
+                queued = await db.scalar(text("SELECT COUNT(*) FROM jobs WHERE status = 'queued'"))
+                rendering = await db.scalar(text("SELECT COUNT(*) FROM jobs WHERE status = 'rendering'"))
+                downloading = await db.scalar(text("SELECT COUNT(*) FROM jobs WHERE status = 'downloading'"))
+                outbox_pending = await db.scalar(text("SELECT COUNT(*) FROM outbox_events WHERE status = 'PENDING'"))
                 
                 if queued is not None: queue_depth.labels(status="queued").set(queued)
                 if rendering is not None: queue_depth.labels(status="rendering").set(rendering)
