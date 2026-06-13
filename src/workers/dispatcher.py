@@ -4,7 +4,6 @@ import logging
 import random
 import uuid
 import asyncpg
-import time
 
 from src.core.config import get_settings
 from src.core.logging import (
@@ -13,7 +12,6 @@ from src.core.logging import (
     event_id_var,
     worker_id_var,
 )
-from src.db.models import OutboxStatus
 
 logger = logging.getLogger("osurender.dispatcher")
 
@@ -297,7 +295,6 @@ class OutboxDispatcher:
 
 
 if __name__ == "__main__":
-    import os
     from prometheus_client import start_http_server
 
     setup_logging("dispatcher")

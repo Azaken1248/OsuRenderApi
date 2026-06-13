@@ -1,10 +1,9 @@
 import uuid
-from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.db.models import Job, JobStatus
+from src.db.models import Job
 from src.db.session import get_db
 
 router = APIRouter()

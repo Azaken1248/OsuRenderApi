@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.signals import celeryd_init, worker_process_init, worker_process_shutdown
 from src.core.config import get_settings
 
 settings = get_settings()
@@ -18,9 +19,6 @@ celery_app.conf.update(
     enable_utc=True,
     task_track_started=True,
 )
-
-from celery.signals import celeryd_init
-
 
 @celeryd_init.connect
 def start_metrics_server(**kwargs):
@@ -42,9 +40,6 @@ celery_app.conf.beat_schedule = {
 }
 
 
-from celery.signals import worker_process_init
-
-
 @worker_process_init.connect
 def init_worker_db_pool(**kwargs):
     """
@@ -55,9 +50,6 @@ def init_worker_db_pool(**kwargs):
     from src.db.session import get_engine
 
     get_engine().sync_engine.dispose()
-
-
-from celery.signals import worker_process_shutdown
 
 
 @worker_process_shutdown.connect

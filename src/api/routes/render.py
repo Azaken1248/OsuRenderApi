@@ -7,8 +7,7 @@ from src.core.limiter import limiter
 from src.core.storage import storage_client
 from src.db.models import Job, JobStatus, OutboxEvent, OutboxStatus
 from src.db.session import get_db
-from src.core.metrics import job_submit_total, jobs_failed_total
-import zlib
+from src.core.metrics import job_submit_total
 from sqlalchemy import select, func, text
 
 router = APIRouter()
@@ -67,7 +66,7 @@ async def submit_render(
         parsed_replay = Replay.from_file(replay.file)
         if parsed_replay.mode.value != 0:
             raise ValueError("Only osu!standard replays are supported.")
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=415,
             detail="Invalid replay file. The structure is corrupted or unsupported.",
@@ -163,7 +162,7 @@ async def submit_render(
             length=file_size,
             content_type=replay.content_type or "application/octet-stream",
         )
-    except Exception as e:
+    except Exception:
         import logging
 
         logger = logging.getLogger("osurender.api")

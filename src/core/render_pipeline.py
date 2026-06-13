@@ -13,7 +13,7 @@ async def _upload_log_and_fail(
     try:
         with open(log_path, "a") as f:
             f.write(f"\nFATAL ERROR: {error}\n")
-    except:
+    except Exception:
         pass
 
     log_key = f"logs/{job_id}.log"
@@ -22,7 +22,7 @@ async def _upload_log_and_fail(
             await s3.upload_file(
                 log_path, bucket_name, log_key, ExtraArgs={"ContentType": "text/plain"}
             )
-    except:
+    except Exception:
         pass
     return {"success": False, "error": error, "log_key": log_key}
 
@@ -253,7 +253,7 @@ async def execute_render_pipeline(
                                     f"logs/{job_id}.log",
                                     ExtraArgs={"ContentType": "text/plain"},
                                 )
-                            except:
+                            except Exception:
                                 pass
                         try:
                             await asyncio.wait_for(stop_event.wait(), timeout=3.0)
@@ -406,6 +406,6 @@ async def execute_render_pipeline(
         try:
 
             pass
-        except:
+        except Exception:
             pass
         return {"success": False, "error": str(e)}

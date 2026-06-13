@@ -6,17 +6,25 @@ import httpx
 import tempfile
 import logging
 import time
-from pathlib import Path
 
 from osrparse import Replay
 from sqlalchemy import select, update
-from celery import shared_task
 
 from src.core.celery_app import celery_app
 from src.core.storage import storage_client
 from src.core.config import get_settings
-from src.core.logging import job_id_var, worker_id_var, setup_logging
+from src.core.logging import job_id_var, worker_id_var
 from src.db.models import Job, JobStatus
+from src.db.session import get_session_factory
+from src.core.metrics import (
+    active_render_workers,
+    render_duration_seconds,
+    render_failures_total,
+    jobs_completed_total,
+    jobs_failed_total,
+    storage_operation_duration_seconds,
+    storage_failures_total,
+)
 
 settings = get_settings()
 logger = logging.getLogger("osurender.worker")
@@ -45,17 +53,6 @@ async def fetch_beatmap_with_backoff(
             await asyncio.sleep(2**attempt)
     return None
 
-
-from src.db.session import get_session_factory
-from src.core.metrics import (
-    active_render_workers,
-    render_duration_seconds,
-    render_failures_total,
-    jobs_completed_total,
-    jobs_failed_total,
-    storage_operation_duration_seconds,
-    storage_failures_total,
-)
 
 
 async def _process_render_job(job_id: str):
@@ -101,7 +98,7 @@ async def _process_render_job(job_id: str):
                     storage_operation_duration_seconds.labels(
                         operation="download_replay"
                     ).observe(time.monotonic() - dl_start)
-                except Exception as e:
+                except Exception:
                     storage_failures_total.labels(operation="download_replay").inc()
                     raise
 
@@ -234,7 +231,7 @@ async def _process_render_job(job_id: str):
                         "osurender-gpu-worker", "gpu_render_task"
                     )
 
-                    function_call = gpu_render_fn.spawn(
+                    function_call = gpu_render_fn.spawn(  # type: ignore
                         job_id=job_id,
                         set_id=set_id,
                         replay_key=job.replay_storage_key,
@@ -343,7 +340,7 @@ async def _reap_zombie_jobs():
     from src.db.session import get_session_factory
     from src.db.models import Job, JobStatus
     from src.core.metrics import zombie_jobs_reaped_total
-    from sqlalchemy import select, update
+    from sqlalchemy import update
     from datetime import datetime, timezone, timedelta
 
     timeout_threshold = datetime.now(timezone.utc) - timedelta(minutes=15)
@@ -364,9 +361,10 @@ async def _reap_zombie_jobs():
             )
         )
         result1 = await db.execute(query1)
-        if getattr(result1, "rowcount", 0) > 0:
-            zombie_jobs_reaped_total.inc(result1.rowcount)
-            logger.warning(f"Reaped {result1.rowcount} timed-out jobs")
+        rowcount1 = getattr(result1, "rowcount", 0)
+        if rowcount1 > 0:
+            zombie_jobs_reaped_total.inc(rowcount1)
+            logger.warning(f"Reaped {rowcount1} timed-out jobs")
 
         query2 = (
             update(Job)
@@ -388,8 +386,9 @@ async def _reap_zombie_jobs():
             )
         )
         result3 = await db.execute(query3)
-        if getattr(result3, "rowcount", 0) > 0:
-            zombie_jobs_reaped_total.inc(result3.rowcount)
+        rowcount3 = getattr(result3, "rowcount", 0)
+        if rowcount3 > 0:
+            zombie_jobs_reaped_total.inc(rowcount3)
 
         await db.commit()
 
