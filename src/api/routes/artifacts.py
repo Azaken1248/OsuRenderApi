@@ -11,8 +11,11 @@ router = APIRouter()
     description="Returns a pre-signed URL to download or stream the artifact from object storage.",
 )
 async def get_artifact(request: Request, key: str):
-    try:
+    valid_prefixes = ("logs/", "videos/", "thumbnails/", "replays/", "skins/")
+    if not key.startswith(valid_prefixes):
+        raise HTTPException(status_code=403, detail="Invalid artifact prefix")
 
+    try:
         if key.startswith("logs/"):
             try:
                 response = storage_client.client.get_object(

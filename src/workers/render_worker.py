@@ -348,19 +348,63 @@ async def _reap_zombie_jobs():
     factory = get_session_factory()
     async with factory() as db:
 
-        query1 = (
-            update(Job)
-            .where(
-                Job.status.in_([JobStatus.RENDERING, JobStatus.DOWNLOADING]),
-                Job.updated_at < timeout_threshold,
-            )
-            .values(
-                status=JobStatus.FAILED,
-                error_message="Job timed out and was reaped by the system.",
-            )
+        stuck_jobs_query = select(Job).where(
+            Job.status.in_([JobStatus.RENDERING, JobStatus.DOWNLOADING]),
+            Job.updated_at < timeout_threshold,
         )
-        result1 = await db.execute(query1)
-        rowcount1 = getattr(result1, "rowcount", 0)
+        stuck_res = await db.execute(stuck_jobs_query)
+        stuck_jobs = stuck_res.scalars().all()
+
+        rowcount1 = 0
+        for job in stuck_jobs:
+            if job.modal_call_id:
+                try:
+                    import modal
+
+                    fc = modal.FunctionCall.from_id(job.modal_call_id)
+                    try:
+                        res = fc.get(timeout=0)
+                        if res and isinstance(res, dict) and res.get("success"):
+                            job.status = JobStatus.COMPLETED
+                            job.progress = 100.0
+                            job.video_storage_key = res.get("video_key")
+                            job.thumb_storage_key = res.get("thumb_key")
+                            if res.get("pp") and float(res.get("pp")) > 0:
+                                c_dict = dict(job.config)
+                                if "replay_stats" not in c_dict:
+                                    c_dict["replay_stats"] = {}
+                                c_dict["replay_stats"]["pp"] = float(res.get("pp"))
+                                job.config = c_dict
+                            logger.info(
+                                f"Modal polling fallback recovered completed job {job.id}"
+                            )
+                        else:
+                            job.status = JobStatus.FAILED
+                            job.error_message = (
+                                res.get(
+                                    "error",
+                                    "Modal execution failed without error message.",
+                                )
+                                if isinstance(res, dict)
+                                else "Unknown Modal failure"
+                            )
+                            logger.info(
+                                f"Modal polling fallback recovered failed job {job.id}"
+                            )
+                    except TimeoutError:
+                        job.status = JobStatus.FAILED
+                        job.error_message = (
+                            "Job timed out and was reaped by the system."
+                        )
+                except Exception as e:
+                    job.status = JobStatus.FAILED
+                    job.error_message = f"Modal polling failed: {str(e)}"
+            else:
+                job.status = JobStatus.FAILED
+                job.error_message = "Job timed out and was reaped by the system."
+
+            rowcount1 += 1
+
         if rowcount1 > 0:
             zombie_jobs_reaped_total.inc(rowcount1)
             logger.warning(f"Reaped {rowcount1} timed-out jobs")

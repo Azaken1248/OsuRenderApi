@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.db.models import Job
 from src.db.session import get_db
+from src.core.limiter import limiter
 
 router = APIRouter()
 
@@ -126,7 +127,8 @@ async def legacy_list_skins():
 
 
 @router.post("/skins/upload")
-async def legacy_upload_skin(skin: UploadFile = File(...)):
+@limiter.limit("5/minute")
+async def legacy_upload_skin(request: Request, skin: UploadFile = File(...)):
     from src.api.routes.skins import upload_skin
 
     return await upload_skin(skin=skin)

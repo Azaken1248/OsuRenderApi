@@ -117,20 +117,25 @@ async def job_webhook(
 
     settings = get_settings()
     body = await request.body()
-    if settings.webhook_secret:
-        signature = request.headers.get("X-Signature")
-        if not signature:
-            webhook_failures_total.labels(reason="missing_signature").inc()
-            raise HTTPException(status_code=401, detail="Missing signature")
+    if not settings.webhook_secret:
+        webhook_failures_total.labels(reason="missing_secret_config").inc()
+        raise HTTPException(
+            status_code=500,
+            detail="Server misconfiguration: WEBHOOK_SECRET is not set",
+        )
 
-        expected_sig = hmac.new(
-            settings.webhook_secret.encode(), body, hashlib.sha256
-        ).hexdigest()
+    signature = request.headers.get("X-Signature")
+    if not signature:
+        webhook_failures_total.labels(reason="missing_signature").inc()
+        raise HTTPException(status_code=401, detail="Missing signature")
 
-        if not hmac.compare_digest(signature, expected_sig):
-            webhook_failures_total.labels(reason="invalid_signature").inc()
-            raise HTTPException(status_code=401, detail="Invalid signature")
+    expected_sig = hmac.new(
+        settings.webhook_secret.encode(), body, hashlib.sha256
+    ).hexdigest()
 
+    if not hmac.compare_digest(signature, expected_sig):
+        webhook_failures_total.labels(reason="invalid_signature").inc()
+        raise HTTPException(status_code=401, detail="Invalid signature")
     try:
         payload_dict = json.loads(body)
         payload = WebhookPayload(**payload_dict)
