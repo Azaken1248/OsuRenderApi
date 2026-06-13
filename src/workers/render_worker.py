@@ -15,7 +15,7 @@ from src.core.storage import storage_client
 from src.core.config import get_settings
 from src.core.logging import job_id_var, worker_id_var
 from src.db.models import Job, JobStatus
-from src.db.session import get_session_factory
+from src.db.session import get_session_factory, reset_session_factory
 from src.core.metrics import (
     active_render_workers,
     render_duration_seconds,
@@ -332,6 +332,7 @@ async def _process_render_job(job_id: str):
     soft_time_limit=600,
 )
 def process_render_job(self, job_id: str):
+    reset_session_factory()
     asyncio.run(_process_render_job(job_id))
 
 
@@ -438,4 +439,5 @@ async def _reap_zombie_jobs():
 
 @celery_app.task(name="reap_zombie_jobs")
 def reap_zombie_jobs():
+    reset_session_factory()
     asyncio.run(_reap_zombie_jobs())

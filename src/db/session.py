@@ -12,6 +12,12 @@ _engine = None
 _session_factory = None
 
 
+def reset_session_factory():
+    global _engine, _session_factory
+    _engine = None
+    _session_factory = None
+
+
 def get_engine():
     global _engine
     if _engine is None:
