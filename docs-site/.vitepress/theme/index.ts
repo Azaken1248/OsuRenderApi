@@ -12,7 +12,7 @@ export default {
       const hammerModule = await import('hammerjs');
       const Hammer = (hammerModule as any).default || hammerModule;
 
-      const eventsHandler = {
+      const eventsHandler: any = {
         haltEventListeners: ['touchstart', 'touchend', 'touchmove', 'touchleave', 'touchcancel'],
         init: function(options: any) {
           var instance = options.instance
