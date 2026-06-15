@@ -1,3 +1,8 @@
+---
+title: "Configuration"
+description: "Complete configuration reference for OsuRender API — environment variables, rendering presets, storage backends, and worker tuning."
+---
+
 # Configuration Reference
 
 OsuRender API is configured entirely through environment variables, managed by [pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/). Copy `.env.example` to `.env` and customize as needed.

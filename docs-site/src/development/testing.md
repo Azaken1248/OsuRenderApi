@@ -1,3 +1,8 @@
+---
+title: "Testing Guide"
+description: "Testing strategy for OsuRender API — unit tests, integration tests, chaos engineering scenarios, and CI test automation."
+---
+
 # Testing Guide
 
 OsuRender API includes a comprehensive test suite covering unit tests, integration tests, and chaos engineering scenarios.

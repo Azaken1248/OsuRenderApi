@@ -1,3 +1,8 @@
+---
+title: "Jobs API"
+description: "Query render job status, track progress through pipeline stages, and retrieve completed video artifacts via the Jobs API."
+---
+
 # Jobs API
 
 ## GET /v1/jobs/{job_id} — Get Job Status

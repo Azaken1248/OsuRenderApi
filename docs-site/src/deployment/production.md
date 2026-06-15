@@ -1,3 +1,8 @@
+---
+title: "Production Deployment"
+description: "Production deployment guide for OsuRender API — infrastructure requirements, scaling strategies, TLS, and health check configuration."
+---
+
 # Production Deployment
 
 This guide covers deploying OsuRender API to a production environment.

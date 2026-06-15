@@ -1,3 +1,8 @@
+---
+title: "SLOs & SLIs"
+description: "Service Level Objectives and Indicators for OsuRender API — availability targets, latency budgets, and error rate thresholds."
+---
+
 # SLOs & SLIs
 
 Service Level Objectives define the reliability targets for OsuRender API.

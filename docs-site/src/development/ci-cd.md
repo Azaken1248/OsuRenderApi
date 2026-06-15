@@ -1,3 +1,8 @@
+---
+title: "CI/CD Pipeline"
+description: "Continuous integration and deployment pipeline — GitHub Actions workflows, automated testing, Docker image builds, and release process."
+---
+
 # CI/CD Pipeline
 
 OsuRender uses GitHub Actions for continuous integration and continuous deployment.

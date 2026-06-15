@@ -1,3 +1,8 @@
+---
+title: "Code Style"
+description: "Code style guide and linting configuration — Ruff, Pyright, formatting conventions, and commit message standards."
+---
+
 # Code Style & Linting
 
 OsuRender API enforces a strict but pragmatic code style to maintain readability and prevent bugs.

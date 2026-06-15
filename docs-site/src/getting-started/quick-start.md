@@ -1,3 +1,8 @@
+---
+title: "Quick Start"
+description: "Get OsuRender API running in minutes with Docker Compose. Step-by-step setup for local development and your first replay render."
+---
+
 # Quick Start
 
 Get OsuRender API running and submit your first render in under 5 minutes.

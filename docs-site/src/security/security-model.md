@@ -1,3 +1,8 @@
+---
+title: "Security Model"
+description: "Defense-in-depth security architecture — HMAC verification, Cloudflare ingress, advisory locks, and input sanitization."
+---
+
 # Security Model
 
 OsuRender API employs a defense-in-depth security model to protect the infrastructure from abuse and malicious payloads.

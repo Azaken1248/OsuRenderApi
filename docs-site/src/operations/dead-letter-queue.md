@@ -1,3 +1,8 @@
+---
+title: "Dead Letter Queue"
+description: "Dead letter queue design for failed render jobs — retry policies, manual reprocessing, and failure analysis workflows."
+---
+
 # Dead Letter Queue Management
 
 Events that fail dispatch after 3 retries are moved to `FAILED` status in the `outbox_events` table, forming the Dead Letter Queue (DLQ).

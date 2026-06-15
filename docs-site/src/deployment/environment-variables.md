@@ -1,3 +1,8 @@
+---
+title: "Environment Variables"
+description: "Complete environment variable reference for OsuRender API — database URLs, S3 credentials, Modal tokens, and feature flags."
+---
+
 # Environment Variables
 
 Complete reference of all environment variables. See [Configuration](/src/getting-started/configuration) for detailed descriptions.

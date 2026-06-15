@@ -1,3 +1,8 @@
+---
+title: "Error Codes"
+description: "Comprehensive error code reference for OsuRender API — HTTP status codes, error response schema, and troubleshooting guidance."
+---
+
 # Error Codes
 
 All API errors return a JSON response with a `detail` field:

@@ -1,3 +1,8 @@
+---
+title: "Code of Conduct"
+description: "Community code of conduct for the OsuRender API project — expected behavior, reporting, and enforcement guidelines."
+---
+
 # Code of Conduct
 
 ## Our Pledge

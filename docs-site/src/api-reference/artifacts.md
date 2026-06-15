@@ -1,3 +1,8 @@
+---
+title: "Artifacts API"
+description: "Download rendered video files and associated metadata. Pre-signed URL generation, artifact retention policies, and streaming downloads."
+---
+
 # Artifacts API
 
 <span class="custom-badge badge-get">GET</span> `/v1/artifacts/{key}`

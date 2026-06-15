@@ -1,3 +1,8 @@
+---
+title: "Local Setup"
+description: "Developer environment setup guide — prerequisites, IDE configuration, database migrations, and running the full stack locally."
+---
+
 # Local Development Setup
 
 Set up OsuRender API for local development without running the full Docker stack.

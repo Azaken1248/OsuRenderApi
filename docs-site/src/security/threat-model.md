@@ -1,3 +1,8 @@
+---
+title: "Threat Model"
+description: "Threat modeling for OsuRender API — attack surfaces, risk assessment, and mitigation strategies for a public rendering service."
+---
+
 # Threat Model
 
 This document outlines the anticipated threats to the OsuRender API and the corresponding mitigations in place.

@@ -1,3 +1,8 @@
+---
+title: "Modal GPU Workers"
+description: "Deploy GPU rendering workers on Modal — T4/A10G instance configuration, secret management, and auto-scaling policies."
+---
+
 # Modal GPU Workers
 
 OsuRender uses [Modal](https://modal.com) for serverless GPU-accelerated video rendering. When `USE_MODAL_GPU=1`, render jobs are offloaded to Modal's T4/A10G GPU instances.

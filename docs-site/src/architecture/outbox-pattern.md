@@ -1,3 +1,8 @@
+---
+title: "Transactional Outbox"
+description: "How OsuRender guarantees zero job loss using the Transactional Outbox pattern with PostgreSQL LISTEN/NOTIFY and safety polling."
+---
+
 # Transactional Outbox Pattern
 
 The Transactional Outbox is the core reliability pattern in OsuRender API. It solves the **dual-write problem** that plagues most queue-based architectures.

@@ -1,3 +1,8 @@
+---
+title: "How to Contribute"
+description: "Contribution guide for OsuRender API — finding issues, development workflow, and getting your changes merged."
+---
+
 # How to Contribute
 
 We welcome contributions to OsuRender API! Whether it's a bug fix, new feature, or documentation improvement, your help is appreciated.

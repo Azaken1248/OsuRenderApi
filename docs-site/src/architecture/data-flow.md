@@ -1,3 +1,8 @@
+---
+title: "Data Flow & Lifecycle"
+description: "End-to-end data flow from replay upload through GPU rendering to artifact delivery. Job state machine and lifecycle transitions."
+---
+
 # Data Flow & Job Lifecycle
 
 This page details the complete lifecycle of a render job from submission to video delivery.

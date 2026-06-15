@@ -1,3 +1,8 @@
+---
+title: "System Overview"
+description: "High-level architecture of OsuRender API — API gateway, dispatcher, Modal GPU workers, PostgreSQL, Redis, and MinIO integration."
+---
+
 # System Overview
 
 OsuRender API is architected as a distributed, event-driven system with clear separation between the API tier, job orchestration, and compute-intensive rendering.

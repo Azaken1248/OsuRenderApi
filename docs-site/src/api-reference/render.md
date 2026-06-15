@@ -1,3 +1,8 @@
+---
+title: "POST /v1/render"
+description: "Submit osu! replay files for GPU-accelerated rendering. Full request/response schema, multipart upload format, and rendering options."
+---
+
 # POST /v1/render — Submit Render
 
 <span class="custom-badge badge-post">POST</span> `/v1/render`

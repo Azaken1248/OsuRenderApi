@@ -1,3 +1,8 @@
+---
+title: "Input Validation"
+description: "Input validation rules — replay file verification, zip bomb protection, payload size limits, and parameter sanitization."
+---
+
 # Input Validation
 
 Rigorous input validation is a core pillar of the OsuRender API security model.

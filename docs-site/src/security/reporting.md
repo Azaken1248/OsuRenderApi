@@ -1,3 +1,8 @@
+---
+title: "Reporting Vulnerabilities"
+description: "Responsible disclosure policy — how to report security vulnerabilities in OsuRender API and expected response timelines."
+---
+
 # Reporting Vulnerabilities
 
 Security is a top priority for OsuRender API. We appreciate the efforts of the security community in helping us keep the project safe.

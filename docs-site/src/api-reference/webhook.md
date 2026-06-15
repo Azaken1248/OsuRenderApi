@@ -1,3 +1,8 @@
+---
+title: "Webhook API"
+description: "Configure webhook callbacks for real-time render completion notifications. HMAC signature verification and retry semantics."
+---
+
 # Webhook API
 
 <span class="custom-badge badge-post">POST</span> `/v1/jobs/{job_id}/webhook`

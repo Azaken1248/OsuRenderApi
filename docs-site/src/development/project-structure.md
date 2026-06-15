@@ -1,3 +1,8 @@
+---
+title: "Project Structure"
+description: "OsuRender API codebase organization — package layout, module responsibilities, and dependency architecture."
+---
+
 # Project Structure
 
 Annotated directory tree of the OsuRender API codebase.

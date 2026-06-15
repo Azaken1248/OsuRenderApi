@@ -1,3 +1,8 @@
+---
+title: "Introduction"
+description: "Learn what OsuRender API is, how it works, and why it was built — a distributed osu! replay rendering service powered by danser-go and Modal GPUs."
+---
+
 # Introduction
 
 **OsuRender API** is a production-grade, distributed service that transforms [osu!](https://osu.ppy.sh) replay files (`.osr`) into high-quality rendered videos using [danser-go](https://github.com/Wieku/danser-go).

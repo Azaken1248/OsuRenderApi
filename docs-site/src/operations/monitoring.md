@@ -1,3 +1,8 @@
+---
+title: "Monitoring & Alerting"
+description: "Prometheus metrics, Grafana dashboards, structured JSON logging, and alerting rules for OsuRender API observability."
+---
+
 # Monitoring & Alerting
 
 OsuRender API exports comprehensive Prometheus metrics and ships with pre-configured alert rules.

@@ -1,3 +1,8 @@
+---
+title: "Database Schema"
+description: "PostgreSQL schema design for OsuRender — jobs, outbox events, skins, and artifacts tables with indexing and migration strategies."
+---
+
 # Database Schema
 
 OsuRender API uses PostgreSQL 16 with async SQLAlchemy ORM. Migrations are managed by Alembic.

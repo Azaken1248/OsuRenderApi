@@ -1,3 +1,8 @@
+---
+title: "Render Pipeline"
+description: "GPU-accelerated rendering pipeline architecture — danser-go execution, Modal cloud GPU orchestration, and artifact upload flow."
+---
+
 # Render Pipeline
 
 The render pipeline handles the full process of transforming an `.osr` replay file into a rendered `.mp4` video. It supports two execution paths: **Modal GPU** (production) and **Local danser** (development).

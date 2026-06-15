@@ -1,3 +1,8 @@
+---
+title: "Legacy Endpoints"
+description: "Documentation for deprecated v0 endpoints maintained for backward compatibility. Migration guide to the modern v1 API."
+---
+
 # Legacy Endpoints
 
 <span class="custom-badge badge-deprecated">Deprecated</span>

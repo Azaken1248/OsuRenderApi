@@ -1,3 +1,8 @@
+---
+title: "Rate Limiting"
+description: "Rate limiting policies, per-endpoint quotas, burst allowances, and strategies for handling 429 responses in OsuRender API."
+---
+
 # Rate Limiting
 
 OsuRender API implements a multi-layered rate limiting and admission control strategy to prevent abuse and ensure fair resource allocation.

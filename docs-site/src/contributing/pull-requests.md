@@ -1,3 +1,8 @@
+---
+title: "Pull Request Process"
+description: "Pull request guidelines — branch naming, review process, CI requirements, and merge criteria for OsuRender API contributions."
+---
+
 # Pull Request Process
 
 When you're ready to submit your changes, please follow this process to ensure a smooth review.

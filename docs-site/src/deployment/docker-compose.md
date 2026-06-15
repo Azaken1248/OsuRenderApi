@@ -1,3 +1,8 @@
+---
+title: "Docker Compose"
+description: "Deploy OsuRender API locally with Docker Compose — full stack provisioning of PostgreSQL, Redis, MinIO, API, workers, and monitoring."
+---
+
 # Docker Compose Deployment
 
 The full OsuRender stack is containerized and deployable via a single `docker-compose up` command.

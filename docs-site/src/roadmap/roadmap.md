@@ -1,3 +1,8 @@
+---
+title: "Roadmap"
+description: "OsuRender API development roadmap — upcoming features, planned improvements, and long-term vision for the rendering platform."
+---
+
 # Big Tech Readiness Roadmap
 
 OsuRender API already demonstrates architecture quality significantly above the average open-source backend (event-driven architecture, outbox pattern, advisory locking, stateless tier). 

@@ -1,3 +1,8 @@
+---
+title: "Dispatcher Deep-Dive"
+description: "Internal mechanics of the job dispatcher — event polling, advisory locks, duplicate prevention, and circuit-breaking strategies."
+---
+
 # Dispatcher Deep-Dive
 
 The `OutboxDispatcher` is the bridge between the PostgreSQL outbox and Celery workers. It runs as a dedicated long-lived process (`WORKER_TYPE=dispatcher`).

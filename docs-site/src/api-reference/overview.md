@@ -1,3 +1,8 @@
+---
+title: "API Overview"
+description: "RESTful API reference for OsuRender — versioned endpoints, authentication, request/response formats, and interactive Swagger documentation."
+---
+
 # API Overview
 
 The OsuRender API follows RESTful conventions with a versioned endpoint structure. All modern endpoints are prefixed with `/v1/`.

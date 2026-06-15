@@ -1,3 +1,8 @@
+---
+title: "Skins API"
+description: "List, upload, and manage osu! skins for replay rendering. Supported formats, upload limits, and skin selection for render jobs."
+---
+
 # Skins API
 
 ## GET /v1/skins — List Available Skins

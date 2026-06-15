@@ -1,3 +1,8 @@
+---
+title: "Architecture Decision Records"
+description: "Key architectural decisions in OsuRender API — rationale for technology choices, trade-offs, and design alternatives considered."
+---
+
 # Architecture Decision Records
 
 This page documents the key architectural decisions made during the design and implementation of OsuRender API.

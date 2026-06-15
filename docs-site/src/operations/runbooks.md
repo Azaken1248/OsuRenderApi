@@ -1,3 +1,8 @@
+---
+title: "Incident Runbooks"
+description: "Operational runbooks for common OsuRender incidents — stuck jobs, worker failures, database issues, and storage problems."
+---
+
 # Incident Runbooks
 
 Operational procedures for common failure scenarios.
