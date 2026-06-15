@@ -2,6 +2,6 @@
   "name": "osurender-root",
   "private": true,
   "scripts": {
-    "build": "cd docs-site && npm install && npm run docs:build && cd .. && rm -rf public && cp -r docs-site/.vitepress/dist public"
+    "build": "cd docs-site && npm install && npm run docs:build && cd .. && rm -rf .vitepress && cp -R docs-site/.vitepress ."
   }
 }
