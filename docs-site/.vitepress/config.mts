@@ -1,15 +1,40 @@
 import { defineConfig } from 'vitepress'
 import { withMermaid } from 'vitepress-plugin-mermaid'
 
+const SITE_URL = 'https://osu-render-api.vercel.app'
+const OG_IMAGE = `${SITE_URL}/og-image.png`
+const SITE_TITLE = 'OsuRender API'
+const SITE_DESCRIPTION = 'Production-grade, distributed osu! replay rendering service — GPU-accelerated, event-driven, and battle-tested at scale.'
+
 export default withMermaid(defineConfig({
-  title: 'OsuRender API',
-  description: 'Production-grade, distributed osu! replay rendering service documentation',
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
   
   head: [
+    // — Charset & viewport —
     ['meta', { name: 'theme-color', content: '#ff66aa' }],
-    ['meta', { name: 'og:type', content: 'website' }],
-    ['meta', { name: 'og:title', content: 'OsuRender API Documentation' }],
-    ['meta', { name: 'og:description', content: 'Production-grade osu! replay rendering at scale' }],
+    ['meta', { name: 'author', content: 'Azaken' }],
+    ['meta', { name: 'keywords', content: 'osu, osu!, replay, rendering, danser, api, gpu, modal, documentation' }],
+
+    // — Open Graph —
+    ['meta', { property: 'og:type', content: 'website' }],
+    ['meta', { property: 'og:site_name', content: SITE_TITLE }],
+    ['meta', { property: 'og:title', content: `${SITE_TITLE} — Documentation` }],
+    ['meta', { property: 'og:description', content: SITE_DESCRIPTION }],
+    ['meta', { property: 'og:image', content: OG_IMAGE }],
+    ['meta', { property: 'og:image:width', content: '256' }],
+    ['meta', { property: 'og:image:height', content: '256' }],
+    ['meta', { property: 'og:image:type', content: 'image/png' }],
+    ['meta', { property: 'og:url', content: SITE_URL }],
+    ['meta', { property: 'og:locale', content: 'en_US' }],
+
+    // — Twitter Card —
+    ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+    ['meta', { name: 'twitter:title', content: `${SITE_TITLE} — Documentation` }],
+    ['meta', { name: 'twitter:description', content: SITE_DESCRIPTION }],
+    ['meta', { name: 'twitter:image', content: OG_IMAGE }],
+
+    // — Fonts —
     ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
     ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }],
     ['link', { href: 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap', rel: 'stylesheet' }],
@@ -20,6 +45,29 @@ export default withMermaid(defineConfig({
   ignoreDeadLinks: [
     /^http:\/\/localhost/
   ],
+
+  // Per-page OG tags derived from frontmatter
+  transformPageData(pageData) {
+    const pageTitle = pageData.frontmatter.title || pageData.title
+    const pageDescription = pageData.frontmatter.description || pageData.description || SITE_DESCRIPTION
+    const canonicalUrl = `${SITE_URL}/${pageData.relativePath}`
+      .replace(/index\.md$/, '')
+      .replace(/\.md$/, '')
+
+    const ogImage = pageData.frontmatter.ogImage || OG_IMAGE
+
+    pageData.frontmatter.head ??= []
+    pageData.frontmatter.head.push(
+      ['meta', { property: 'og:title', content: `${pageTitle} | ${SITE_TITLE}` }],
+      ['meta', { property: 'og:description', content: pageDescription }],
+      ['meta', { property: 'og:url', content: canonicalUrl }],
+      ['meta', { property: 'og:image', content: ogImage }],
+      ['meta', { name: 'twitter:title', content: `${pageTitle} | ${SITE_TITLE}` }],
+      ['meta', { name: 'twitter:description', content: pageDescription }],
+      ['meta', { name: 'twitter:image', content: ogImage }],
+      ['link', { rel: 'canonical', href: canonicalUrl }],
+    )
+  },
 
   markdown: {
     lineNumbers: true,
