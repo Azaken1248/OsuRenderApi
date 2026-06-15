@@ -12,7 +12,7 @@ OsuRender API is a highly scalable, decoupled microservice system designed to pr
 
 **Comprehensive documentation, architectural ADRs, and deployment guides have been moved to our dedicated documentation portal.**
 
-**[View the full OsuRender Documentation](https://render.azaken.com/docs)** (or serve it locally from `/docs-site`)
+**[View the full OsuRender Documentation](https://docs.render.azaken.com)** (or serve it locally from `/docs-site`)
 
 The documentation portal covers:
 - **Architecture**: In-depth explanations of the Outbox Pattern, Celery orchestration, and Modal cloud GPU execution.
