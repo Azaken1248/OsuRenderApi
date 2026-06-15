@@ -36,7 +36,9 @@ pyrightconfig.json
 
 # --- Binary assets ---
 *.osr
-danser-*.zip# --- Node/Docs ---
+danser-*.zip
+
+# --- Node/Docs ---
 node_modules/
 docs-site/.vitepress/dist/
 docs-site/.vitepress/cache/
