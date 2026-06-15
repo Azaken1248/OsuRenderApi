@@ -1,0 +1,164 @@
+/* ============================================
+   OsuRender API Docs — Custom Theme
+   ============================================ */
+
+:root {
+  /* Brand colors — osu! pink palette */
+  --vp-c-brand-1: #ff2b85;
+  --vp-c-brand-2: #e02271;
+  --vp-c-brand-3: #c41a60;
+  --vp-c-brand-soft: rgba(255, 43, 133, 0.14);
+
+  /* Fonts */
+  --vp-font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --vp-font-family-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Home hero gradient */
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(135deg, var(--vp-c-brand-1) 0%, var(--vp-c-brand-3) 100%);
+  --vp-home-hero-image-background-image: linear-gradient(135deg, var(--vp-c-brand-soft) 0%, rgba(196, 26, 96, 0.15) 100%);
+  --vp-home-hero-image-filter: blur(44px);
+}
+
+.dark {
+  --vp-c-brand-1: #ff4d9a;
+  --vp-c-brand-2: #ff2b85;
+  --vp-c-brand-3: #e02271;
+  --vp-c-brand-soft: rgba(255, 77, 154, 0.16);
+  --vp-c-bg: #1c151e;
+  --vp-c-bg-soft: #241a27;
+  --vp-c-bg-mute: #2e2231;
+}
+
+/* ---- Hero section enhancements ---- */
+.VPHero .name {
+  font-weight: 800 !important;
+  letter-spacing: -0.02em;
+}
+
+.VPHero .tagline {
+  font-size: 1.25rem !important;
+  opacity: 0.85;
+}
+
+.VPHero .text {
+  font-size: 1.1rem !important;
+  max-width: 620px;
+}
+
+/* ---- Feature cards ---- */
+.VPFeature {
+  border-radius: 12px !important;
+  transition: transform 0.25s ease, box-shadow 0.25s ease !important;
+}
+
+.VPFeature:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(255, 102, 170, 0.12);
+}
+
+.dark .VPFeature:hover {
+  box-shadow: 0 12px 40px rgba(255, 102, 170, 0.08);
+}
+
+/* ---- Custom badge styles ---- */
+.custom-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ---- Icon rendering fix ---- */
+.VPFeature .icon svg {
+  color: var(--vp-c-brand-1);
+  width: 48px;
+  height: 48px;
+}
+
+.badge-post { background: #22c55e20; color: #22c55e; }
+.badge-get { background: #3b82f620; color: #3b82f6; }
+.badge-put { background: #f59e0b20; color: #f59e0b; }
+.badge-delete { background: #ef444420; color: #ef4444; }
+.badge-deprecated { background: #6b728020; color: #6b7280; }
+
+/* ---- Interactive Mermaid Diagrams ---- */
+.mermaid-wrapper {
+  cursor: zoom-in;
+  transition: all 0.3s ease;
+  border-radius: 8px;
+}
+
+.mermaid-wrapper:hover {
+  background-color: var(--vp-c-bg-soft);
+}
+
+.mermaid-fullscreen-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 99999;
+  background: var(--vp-c-bg);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: zoom-out;
+}
+
+.mermaid-fullscreen-overlay svg {
+  max-width: none !important;
+  max-height: none !important;
+  width: 100vw !important;
+  height: 100vh !important;
+}
+
+/* ---- Smooth page transitions ---- */
+.VPContent {
+  transition: opacity 0.2s ease;
+}
+
+/* ---- Code blocks ---- */
+.vp-doc div[class*="language-"] {
+  border-radius: 10px !important;
+}
+
+/* ---- Sidebar refinement ---- */
+.VPSidebar .group + .group {
+  border-top: 1px solid var(--vp-c-divider);
+  padding-top: 12px;
+}
+
+/* ---- Mermaid diagram dark mode fix ---- */
+.dark .mermaid {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* ---- Table styling ---- */
+.vp-doc table {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.vp-doc th {
+  background: var(--vp-c-brand-soft) !important;
+  font-weight: 600;
+}
+
+/* ---- Swagger embed ---- */
+.swagger-container {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 1.5rem 0;
+}
+
+.swagger-container iframe {
+  width: 100%;
+  height: 700px;
+  border: none;
+}
