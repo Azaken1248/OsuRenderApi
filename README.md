@@ -8,11 +8,11 @@
 
 OsuRender API is a highly scalable, decoupled microservice system designed to process, orchestrate, and render osu! replays concurrently using cloud GPU infrastructure.
 
-## 📚 Official Documentation
+## Official Documentation
 
 **Comprehensive documentation, architectural ADRs, and deployment guides have been moved to our dedicated documentation portal.**
 
-**👉 [View the full OsuRender Documentation](https://render.azaken.com/docs)** (or serve it locally from `/docs-site`)
+**[View the full OsuRender Documentation](https://render.azaken.com/docs)** (or serve it locally from `/docs-site`)
 
 The documentation portal covers:
 - **Architecture**: In-depth explanations of the Outbox Pattern, Celery orchestration, and Modal cloud GPU execution.
@@ -22,7 +22,7 @@ The documentation portal covers:
 
 ---
 
-## ⚡ Quick Start
+## Quick Start
 
 The fastest way to get OsuRender running locally is via Docker Compose.
 
@@ -45,7 +45,7 @@ modal secret create osurender-secrets S3_ENDPOINT="http://your-ip:9000" S3_ACCES
 modal deploy src.modal_deploy
 ```
 
-## 🛠 Tech Stack
+## Tech Stack
 
 - **Gateway**: FastAPI, Uvicorn, Pydantic
 - **Database**: PostgreSQL 16, async SQLAlchemy, Alembic
@@ -54,5 +54,5 @@ modal deploy src.modal_deploy
 - **Storage**: MinIO / AWS S3
 - **Monitoring**: Prometheus, Grafana
 
-## 📄 License
+## License
 Provided as-is for educational and personal use. Please respect osu! community guidelines.
