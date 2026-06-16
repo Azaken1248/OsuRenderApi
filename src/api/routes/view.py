@@ -1,3 +1,4 @@
+import json
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -55,6 +56,11 @@ async def view_player(
 
     map_title = job.map_title or job.id.hex
 
+    # Serialize config for the Explore Details tab
+    config_json = json.dumps(job.config or {}, indent=2, default=str)
+    created_at_str = job.created_at.isoformat() if job.created_at else ""
+    updated_at_str = job.updated_at.isoformat() if job.updated_at else ""
+
     return templates.TemplateResponse(
         request,
         "view_player.html",
@@ -67,5 +73,9 @@ async def view_player(
             "video_url": video_url,
             "video_src_html": video_src_html,
             "base_url": "https://api.render.azaken.com",
+            "config_json": config_json,
+            "created_at": created_at_str,
+            "updated_at": updated_at_str,
+            "error_message": job.error_message or "",
         },
     )

@@ -147,6 +147,10 @@ def create_app() -> FastAPI:
     app.include_router(skins.router, prefix="/v1", tags=["Skins"])
     app.include_router(artifacts.router, prefix="/v1/artifacts", tags=["Artifacts"])
 
+    from starlette.staticfiles import StaticFiles
+
+    app.mount("/static", StaticFiles(directory="src/api/static"), name="static")
+
     from prometheus_fastapi_instrumentator import Instrumentator
 
     Instrumentator().instrument(app).expose(app)
