@@ -1,62 +1,830 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OsuRender API</title>
+    <title>OsuRender — Replay Rendering as a Service</title>
+    <meta name="description"
+        content="High-quality osu! replay rendering powered by GPU-accelerated cloud infrastructure. Submit replays, get stunning videos.">
+    <meta name="theme-color" content="#ff66ab">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <style>
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-deep: #0e0e1a;
+            --bg-surface: #161625;
+            --bg-card: #1c1c30;
+            --bg-card-raised: #222240;
+            --accent: #ff66ab;
+            --accent-dim: #cc4e88;
+            --accent-glow: rgba(255, 102, 171, 0.25);
+            --accent-secondary: #b366ff;
+            --text-primary: #eeeef2;
+            --text-secondary: #9898b0;
+            --text-muted: #6a6a82;
+            --border: #2a2a42;
+            --border-light: #35355a;
+            --shadow-neu-up: 6px 6px 14px rgba(0, 0, 0, 0.45), -6px -6px 14px rgba(50, 50, 80, 0.12);
+            --shadow-neu-down: inset 4px 4px 10px rgba(0, 0, 0, 0.35), inset -4px -4px 10px rgba(50, 50, 80, 0.08);
+            --shadow-float: 0 12px 40px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3);
+            --radius: 16px;
+            --radius-sm: 10px;
+            --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
         body {
-            background-color: #111111;
-            color: #eeeeee;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-deep);
+            color: var(--text-primary);
+            font-family: 'Outfit', sans-serif;
+            line-height: 1.6;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* ─── NAV ─── */
+        .nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border);
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .nav-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            height: 64px;
             display: flex;
-            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+
+        .nav-logo {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+            display: flex;
             align-items: center;
             justify-content: center;
-            height: 100vh;
-            margin: 0;
+            font-weight: 800;
+            font-size: 1rem;
+            color: #fff;
+            box-shadow: 0 2px 10px var(--accent-glow);
+        }
+
+        .nav-title {
+            font-weight: 700;
+            font-size: 1.25rem;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .nav-link:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .nav-link--cta {
+            background: var(--accent);
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .nav-link--cta:hover {
+            background: var(--accent-dim);
+            color: #fff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px var(--accent-glow);
+        }
+
+        /* ─── HERO ─── */
+        .hero {
+            position: relative;
+            padding: 8rem 2rem 6rem;
+            text-align: center;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 800px 500px at 30% 20%, rgba(255, 102, 171, 0.08) 0%, transparent 60%),
+                radial-gradient(ellipse 600px 400px at 70% 80%, rgba(179, 102, 255, 0.06) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        /* Floating circles */
+        .hero-orb {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0.12;
+        }
+
+        .hero-orb--1 {
+            width: 400px;
+            height: 400px;
+            top: -100px;
+            right: -80px;
+            background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+            animation: orb-float 12s ease-in-out infinite;
+        }
+
+        .hero-orb--2 {
+            width: 250px;
+            height: 250px;
+            bottom: -60px;
+            left: -40px;
+            background: radial-gradient(circle, var(--accent-secondary) 0%, transparent 70%);
+            animation: orb-float 16s ease-in-out infinite reverse;
+        }
+
+        .hero-orb--3 {
+            width: 150px;
+            height: 150px;
+            top: 40%;
+            left: 15%;
+            background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+            animation: orb-float 10s ease-in-out infinite 2s;
+        }
+
+        @keyframes orb-float {
+
+            0%,
+            100% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            33% {
+                transform: translate(30px, -20px) scale(1.05);
+            }
+
+            66% {
+                transform: translate(-20px, 15px) scale(0.95);
+            }
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0.4rem 1rem;
+            border-radius: 9999px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--accent);
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-neu-up);
+        }
+
+        .hero-badge-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent);
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.4;
+                transform: scale(0.8);
+            }
+        }
+
+        .hero h1 {
+            position: relative;
+            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            letter-spacing: -0.03em;
+        }
+
+        .hero h1 .gradient-text {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-sub {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            max-width: 560px;
+            margin: 0 auto 3rem;
+            font-weight: 400;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0.9rem 2rem;
+            border-radius: var(--radius-sm);
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .btn--primary {
+            background: linear-gradient(135deg, var(--accent), #e0559a);
+            color: #fff;
+            box-shadow: 0 4px 20px var(--accent-glow), var(--shadow-neu-up);
+        }
+
+        .btn--primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(255, 102, 171, 0.35), var(--shadow-neu-up);
+        }
+
+        .btn--secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-neu-up);
+        }
+
+        .btn--secondary:hover {
+            background: var(--bg-card-raised);
+            transform: translateY(-2px);
+            border-color: var(--border-light);
+        }
+
+        .btn-icon {
+            font-size: 1.1rem;
+        }
+
+        /* ─── FEATURES ─── */
+        .features {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 4rem 2rem 6rem;
+        }
+
+        .section-label {
+            text-align: center;
+            color: var(--accent);
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            margin-bottom: 0.75rem;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: clamp(1.6rem, 3vw, 2.2rem);
+            font-weight: 700;
+            margin-bottom: 3.5rem;
+            letter-spacing: -0.02em;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 2rem;
+            transition: var(--transition);
+            box-shadow: var(--shadow-neu-up);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
+            opacity: 0;
+            transition: var(--transition);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--border-light);
+            box-shadow: var(--shadow-float);
+        }
+
+        .feature-card:hover::after {
+            opacity: 1;
+        }
+
+        .feature-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.25rem;
+            font-size: 1.5rem;
+            box-shadow: var(--shadow-neu-down);
+        }
+
+        .feature-icon--gpu {
+            background: linear-gradient(135deg, rgba(255, 102, 171, 0.15), rgba(255, 102, 171, 0.05));
+            color: var(--accent);
+        }
+
+        .feature-icon--cloud {
+            background: linear-gradient(135deg, rgba(179, 102, 255, 0.15), rgba(179, 102, 255, 0.05));
+            color: var(--accent-secondary);
+        }
+
+        .feature-icon--api {
+            background: linear-gradient(135deg, rgba(96, 165, 250, 0.15), rgba(96, 165, 250, 0.05));
+            color: #60a5fa;
+        }
+
+        .feature-card h3 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin-bottom: 0.6rem;
+            letter-spacing: -0.01em;
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            font-size: 0.92rem;
+            line-height: 1.65;
+        }
+
+        /* ─── STATS BAR ─── */
+        .stats {
+            background: var(--bg-surface);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            padding: 3.5rem 2rem;
+        }
+
+        .stats-inner {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2rem;
             text-align: center;
         }
-        h1 {
-            color: #ff66aa;
-            font-size: 3rem;
-            margin-bottom: 0.5rem;
+
+        .stat-item {
+            padding: 1rem;
         }
-        p {
+
+        .stat-value {
+            font-size: 2.2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.3rem;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        /* ─── HOW IT WORKS ─── */
+        .how-it-works {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 6rem 2rem;
+        }
+
+        .steps {
+            display: flex;
+            gap: 0;
+            position: relative;
+            margin-top: 1rem;
+        }
+
+        .steps::before {
+            content: '';
+            position: absolute;
+            top: 28px;
+            left: 60px;
+            right: 60px;
+            height: 2px;
+            background: var(--border);
+        }
+
+        .step {
+            flex: 1;
+            text-align: center;
+            position: relative;
+            padding: 0 1rem;
+        }
+
+        .step-number {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.25rem;
+            font-weight: 700;
             font-size: 1.2rem;
-            color: #888888;
-            margin-bottom: 2rem;
+            color: var(--accent);
+            position: relative;
+            z-index: 2;
+            box-shadow: var(--shadow-neu-up);
+            transition: var(--transition);
         }
-        .nav-links {
+
+        .step:hover .step-number {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow), var(--shadow-neu-up);
+        }
+
+        .step h4 {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 0.4rem;
+        }
+
+        .step p {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* ─── FOOTER ─── */
+        .footer {
+            background: var(--bg-surface);
+            border-top: 1px solid var(--border);
+            padding: 3rem 2rem;
+        }
+
+        .footer-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .footer-brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .footer-logo {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 0.7rem;
+            color: #fff;
+        }
+
+        .footer-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+        }
+
+        .footer-links {
             display: flex;
             gap: 1.5rem;
         }
-        a {
-            background-color: #ff66aa;
-            color: #ffffff;
+
+        .footer-links a {
+            color: var(--text-muted);
             text-decoration: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 6px;
-            font-weight: 600;
-            transition: background-color 0.2s;
+            font-size: 0.85rem;
+            transition: var(--transition);
         }
-        a:hover {
-            background-color: #ff4499;
+
+        .footer-links a:hover {
+            color: var(--accent);
         }
-        .secondary {
-            background-color: #222222;
+
+        .footer-copy {
+            width: 100%;
+            text-align: center;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.8rem;
+            color: var(--text-muted);
         }
-        .secondary:hover {
-            background-color: #333333;
+
+        /* ─── RESPONSIVE ─── */
+        @media (max-width: 768px) {
+            .nav-links .nav-link:not(.nav-link--cta) {
+                display: none;
+            }
+
+            .hero {
+                padding: 5rem 1.5rem 4rem;
+            }
+
+            .hero-sub {
+                font-size: 1.05rem;
+            }
+
+            .stats-inner {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1.5rem;
+            }
+
+            .steps {
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+
+            .steps::before {
+                top: 0;
+                bottom: 0;
+                left: 28px;
+                right: auto;
+                width: 2px;
+                height: auto;
+            }
+
+            .step {
+                text-align: left;
+                display: flex;
+                align-items: flex-start;
+                gap: 1.25rem;
+                padding: 0;
+            }
+
+            .step-number {
+                flex-shrink: 0;
+                margin: 0;
+                width: 48px;
+                height: 48px;
+                font-size: 1rem;
+            }
+
+            .step-text {
+                padding-top: 0.5rem;
+            }
+
+            .footer-inner {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .hero h1 {
+                font-size: 2rem;
+            }
         }
     </style>
 </head>
+
 <body>
-    <h1>OsuRender API</h1>
-    <p>High-quality osu! replay rendering service</p>
-    <div class="nav-links">
-        <a href="/api/docs">Swagger UI</a>
-        <a href="/api/redoc" class="secondary">ReDoc</a>
-    </div>
+    <!-- NAV -->
+    <nav class="nav" id="main-nav">
+        <div class="nav-inner">
+            <a href="/" class="nav-brand">
+                <div class="nav-logo">oR</div>
+                <span class="nav-title">OsuRender</span>
+            </a>
+            <div class="nav-links">
+                <a href="/api/docs" class="nav-link">API Docs</a>
+                <a href="/api/redoc" class="nav-link">ReDoc</a>
+                <a href="https://docs.render.azaken.com" class="nav-link" target="_blank" rel="noopener">Docs</a>
+                <a href="/api/docs" class="nav-link nav-link--cta">Get Started →</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="hero" id="hero">
+        <div class="hero-orb hero-orb--1"></div>
+        <div class="hero-orb hero-orb--2"></div>
+        <div class="hero-orb hero-orb--3"></div>
+
+        <div class="hero-badge">
+            <span class="hero-badge-dot"></span>
+            Cloud GPU Rendering
+        </div>
+
+        <h1>
+            Replay Rendering<br>
+            <span class="gradient-text">as a Service</span>
+        </h1>
+
+        <p class="hero-sub">
+            Submit your osu! replays and get stunning, high-quality video renders
+            powered by GPU-accelerated cloud infrastructure.
+        </p>
+
+        <div class="hero-actions">
+            <a href="/api/docs" class="btn btn--primary" id="cta-primary">
+                <span class="btn-icon">⚡</span>
+                Explore the API
+            </a>
+            <a href="https://docs.render.azaken.com" class="btn btn--secondary" target="_blank" rel="noopener"
+                id="cta-docs">
+                <span class="btn-icon">📖</span>
+                Read Documentation
+            </a>
+        </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section class="features" id="features">
+        <div class="section-label">Why OsuRender</div>
+        <h2 class="section-title">Built for Performance & Scale</h2>
+
+        <div class="features-grid">
+            <div class="feature-card" id="feature-gpu">
+                <div class="feature-icon feature-icon--gpu">⚡</div>
+                <h3>GPU-Accelerated</h3>
+                <p>Renders are processed on NVIDIA A10G GPUs via Modal's serverless infrastructure. 1080p and 4K output
+                    in minutes, not hours.</p>
+            </div>
+
+            <div class="feature-card" id="feature-cloud">
+                <div class="feature-icon feature-icon--cloud">☁️</div>
+                <h3>Cloud Storage</h3>
+                <p>Finished renders are stored on R2-compatible object storage with CDN delivery. Share links instantly
+                    with automatic Discord embedding.</p>
+            </div>
+
+            <div class="feature-card" id="feature-api">
+                <div class="feature-icon feature-icon--api">{ }</div>
+                <h3>API-First Design</h3>
+                <p>RESTful API with OpenAPI documentation. Submit replays, poll status, and fetch artifacts
+                    programmatically. Built for bots and integrations.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- STATS -->
+    <section class="stats" id="stats">
+        <div class="stats-inner">
+            <div class="stat-item">
+                <div class="stat-value" id="stat-res">4K</div>
+                <div class="stat-label">Max Resolution</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="stat-gpu">A10G</div>
+                <div class="stat-label">GPU Backend</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="stat-speed">60fps</div>
+                <div class="stat-label">Output Quality</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="stat-api">REST</div>
+                <div class="stat-label">API Protocol</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section class="how-it-works" id="how-it-works">
+        <div class="section-label">Workflow</div>
+        <h2 class="section-title">How It Works</h2>
+
+        <div class="steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-text">
+                    <h4>Upload Replay</h4>
+                    <p>Submit an .osr file via the API or Discord bot with your preferred settings.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-text">
+                    <h4>Cloud Render</h4>
+                    <p>A GPU worker picks up your job. danser-go renders the replay at full quality.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-text">
+                    <h4>Storage & CDN</h4>
+                    <p>The finished video is uploaded to cloud storage with a shareable link.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">4</div>
+                <div class="step-text">
+                    <h4>Watch & Share</h4>
+                    <p>View in-browser with full analytics or share on Discord with rich embeds.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer" id="footer">
+        <div class="footer-inner">
+            <div class="footer-brand">
+                <div class="footer-logo">oR</div>
+                <span class="footer-name">OsuRender</span>
+            </div>
+            <div class="footer-links">
+                <a href="/api/docs">API Docs</a>
+                <a href="/api/redoc">ReDoc</a>
+                <a href="https://docs.render.azaken.com" target="_blank" rel="noopener">Documentation</a>
+            </div>
+            <div class="footer-copy">
+                &copy; 2026 OsuRender — Built by Azaken. Not affiliated with osu! or ppy Pty Ltd.
+            </div>
+        </div>
+    </footer>
 </body>
+
 </html>
