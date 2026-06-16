@@ -103,9 +103,7 @@
 
         <!-- CHARTS -->
         <div class="charts-grid">
-            <div class="chart-card"><h4>Hit Distribution</h4><div id="chart-hits" style="height:260px"></div></div>
             <div class="chart-card"><h4>Accuracy Breakdown</h4><div id="chart-accuracy" style="height:260px"></div></div>
-            <div class="chart-card"><h4>Hit Ratio</h4><div id="chart-ratio" style="height:260px"></div></div>
             <div class="chart-card"><h4>Grade Thresholds</h4><div id="chart-grade" style="height:260px"></div></div>
         </div>
     </div>
@@ -148,9 +146,12 @@ function switchTab(tab) {
 }
 
 // ─── PIPELINE STEPPER ───
+let pipelineLocked = false;
 const STEPS = ['queued','setup','render','upload','done'];
 const STEP_IDS = ['ps-queued','ps-setup','ps-render','ps-upload','ps-done'];
 function setPipelineStage(stage, failed) {
+    if (pipelineLocked) return;
+    if (stage === 'done' || failed) pipelineLocked = true;
     const idx = STEPS.indexOf(stage);
     STEP_IDS.forEach((id, i) => {
         const el = document.getElementById(id);
@@ -208,6 +209,7 @@ function parseLogLine(line) {
 }
 
 function updatePipelineFromLog(line) {
+    if (pipelineLocked) return;
     if (line.includes("Setting up osu! directory") || line.includes("Downloading replay") || line.includes("Downloading beatmap") || line.includes("Downloading skin")) {
         currentPipelineStage = 'setup'; setPipelineStage('setup', false);
         document.getElementById('progress-text').innerText = 'Downloading assets...';
@@ -257,18 +259,7 @@ function renderCharts(stats) {
     const total = h300+h100+h50+miss || 1;
     const acc = ((h300*300+h100*100+h50*50)/(total*300)*100);
 
-    // 1) Hit Distribution - Donut
-    new ApexCharts(document.getElementById('chart-hits'), {
-        chart:{type:'donut',height:260,background:'transparent',foreColor:'#9898b0'},
-        series:[h300,h100,h50,miss], labels:['300s','100s','50s','Misses'],
-        colors:['#60a5fa','#4ade80','#fbbf24','#f87171'],
-        stroke:{show:false}, plotOptions:{pie:{donut:{size:'60%',labels:{show:true,total:{show:true,label:'Total Hits',color:'#9898b0',formatter:()=>total}}}}},
-        legend:{position:'bottom',labels:{colors:'#9898b0'}},
-        dataLabels:{enabled:false},
-        tooltip:{theme:'dark'}
-    }).render();
-
-    // 2) Accuracy Gauge - Radial
+    // 1) Accuracy Gauge - Radial
     new ApexCharts(document.getElementById('chart-accuracy'), {
         chart:{type:'radialBar',height:260,background:'transparent'},
         series:[acc.toFixed(1)], labels:['Accuracy'],
@@ -277,23 +268,7 @@ function renderCharts(stats) {
         stroke:{lineCap:'round'}
     }).render();
 
-    // 3) Hit Ratio - % of total for each judgement
-    const pct300 = (h300/total*100).toFixed(1), pct100 = (h100/total*100).toFixed(1);
-    const pct50 = (h50/total*100).toFixed(1), pctMiss = (miss/total*100).toFixed(1);
-    new ApexCharts(document.getElementById('chart-ratio'), {
-        chart:{type:'bar',height:260,background:'transparent',foreColor:'#9898b0',toolbar:{show:false}},
-        series:[{name:'% of Total',data:[parseFloat(pct300),parseFloat(pct100),parseFloat(pct50),parseFloat(pctMiss)]}],
-        colors:['#60a5fa','#4ade80','#fbbf24','#f87171'],
-        plotOptions:{bar:{distributed:true,borderRadius:6,columnWidth:'55%'}},
-        xaxis:{categories:['300s','100s','50s','Misses'],labels:{style:{colors:['#60a5fa','#4ade80','#fbbf24','#f87171'],fontSize:'12px'}}},
-        yaxis:{max:100,labels:{style:{colors:'#9898b0'},formatter:v=>v+'%'}},
-        grid:{borderColor:'#2a2a42',strokeDashArray:4},
-        dataLabels:{enabled:true,formatter:v=>v.toFixed(1)+'%',style:{colors:['#eeeef2'],fontSize:'11px'}},
-        legend:{show:false},
-        tooltip:{theme:'dark',y:{formatter:v=>v.toFixed(1)+'%'}}
-    }).render();
-
-    // 4) Grade Thresholds - where accuracy falls on SS/S/A/B/C scale
+    // 2) Grade Thresholds - where accuracy falls on SS/S/A/B/C scale
     const gradeThresholds = [
         {name:'SS',min:100,color:'#facc15'},
         {name:'S',min:95,color:'#4ade80'},
