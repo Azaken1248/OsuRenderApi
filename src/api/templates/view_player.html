@@ -1,528 +1,413 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OsuRender: {{ map_title }}</title>
     <meta name="description" content="Watch this osu! replay render powered by OsuRender Cloud API.">
-    <meta name="theme-color" content="#ff66aa">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
-
-        :root {
-            --bg: #09090b;
-            --surface: #18181b;
-            --surface-hover: #27272a;
-            --primary: #ec4899;
-            --primary-hover: #be185d;
-            --text: #f4f4f5;
-            --text-muted: #a1a1aa;
-            --border: #27272a;
-        }
-
-        body {
-            background-color: var(--bg);
-            color: var(--text);
-            font-family: 'Inter', sans-serif;
-            margin: 0;
-            padding: 2rem;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .container {
-            max-width: 1200px;
-            width: 100%;
-            background-color: var(--surface);
-            border-radius: 16px;
-            border: 1px solid var(--border);
-            padding: 2.5rem;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            margin-bottom: 2rem;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 2rem;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-
-        .title-group {
-            flex: 1;
-        }
-
-        h1 {
-            color: var(--primary);
-            margin: 0 0 0.5rem 0;
-            font-size: 2rem;
-            font-weight: 700;
-        }
-
-        .subtitle {
-            color: var(--text-muted);
-            font-size: 1rem;
-            font-family: 'Fira Code', monospace;
-        }
-
-        .status-badge {
-            background-color: rgba(236, 72, 153, 0.1);
-            color: var(--primary);
-            padding: 0.5rem 1rem;
-            border-radius: 9999px;
-            font-weight: 600;
-            font-size: 0.875rem;
-            border: 1px solid rgba(236, 72, 153, 0.2);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .status-failed {
-            background-color: rgba(239, 68, 68, 0.1);
-            color: #ef4444;
-            border-color: rgba(239, 68, 68, 0.2);
-        }
-
-        .status-completed {
-            background-color: rgba(34, 197, 94, 0.1);
-            color: #22c55e;
-            border-color: rgba(34, 197, 94, 0.2);
-        }
-
-        .progress-container {
-            width: 100%;
-            background-color: var(--bg);
-            border-radius: 9999px;
-            height: 12px;
-            overflow: hidden;
-            margin-bottom: 1rem;
-            border: 1px solid var(--border);
-        }
-
-        .progress-bar {
-            height: 100%;
-            background: var(--primary);
-            width: 0%;
-            transition: width 0.3s ease;
-            position: relative;
-        }
-
-        .progress-text {
-            text-align: right;
-            font-size: 0.875rem;
-            color: var(--text-muted);
-            margin-bottom: 2rem;
-            font-family: 'Fira Code', monospace;
-        }
-
-        .logs-container {
-            background-color: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1.5rem;
-            font-family: 'Fira Code', monospace;
-            font-size: 0.875rem;
-            line-height: 1.6;
-            overflow-y: auto;
-            max-height: 500px;
-            scroll-behavior: smooth;
-        }
-
-        .log-line {
-            margin: 0;
-            padding: 0.1rem 0;
-            word-wrap: break-word;
-        }
-
-        .log-time {
-            color: #a1a1aa;
-            margin-right: 0.5rem;
-        }
-
-        .log-info {
-            color: #60a5fa;
-        }
-
-        .log-warn {
-            color: #fbbf24;
-        }
-
-        .log-error {
-            color: #f87171;
-        }
-
-        .log-success {
-            color: #34d399;
-        }
-
-        .log-json-key {
-            color: #c084fc;
-        }
-
-        .log-json-string {
-            color: #34d399;
-        }
-
-        .log-json-number {
-            color: #fbbf24;
-        }
-
-        .log-json-boolean {
-            color: #60a5fa;
-        }
-
-        video {
-            width: 100%;
-            border-radius: 12px;
-            background-color: #000;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-            margin-bottom: 1.5rem;
-            aspect-ratio: 16/9;
-        }
-
-        .btn {
-            background-color: var(--primary);
-            color: white;
-            padding: 0.875rem 2rem;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: 600;
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border: none;
-            cursor: pointer;
-        }
-
-        .btn:hover {
-            background-color: var(--primary-hover);
-            transform: translateY(-1px);
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                padding: 1.5rem;
-            }
-
-            h1 {
-                font-size: 1.5rem;
-            }
-
-            .header {
-                flex-direction: column;
-            }
-        }
-    </style>
+    <meta name="theme-color" content="#ff66ab">
+    <link rel="stylesheet" href="/static/view_player.css">
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 </head>
-
 <body>
-    <div class="container">
-        <div class="header">
-            <div class="title-group">
-                <h1>{{ map_title }}</h1>
-                <div class="subtitle">Job ID: {{ job_id }}</div>
-            </div>
-            <div id="status-badge" class="status-badge">queued</div>
-        </div>
 
-        <div id="video-section" style="display: none; margin-bottom: 2.5rem;">
-            <video id="v" controls poster="{{ thumb_url }}">{{ video_src_html | safe }}</video>
-            <div style="text-align: center;">
-                <a id="d" href="{{ video_url }}" class="btn"><i class="fas fa-download" style="margin-right: 8px;"></i>
-                    Download Render</a>
-            </div>
+<!-- NAV -->
+<nav class="nav">
+    <div class="nav-inner">
+        <a href="/" class="nav-brand">
+            <div class="nav-logo">oR</div>
+            <span class="nav-title">OsuRender</span>
+        </a>
+        <div class="nav-links">
+            <a href="/" class="nav-link">← Back</a>
         </div>
+    </div>
+</nav>
 
-        <div id="stats-section"
-            style="display: none; margin-bottom: 2rem; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem;">
-            <h3
-                style="margin-top: 0; margin-bottom: 1rem; color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">
-                Replay Analytics</h3>
-            <div style="display: flex; flex-wrap: wrap; gap: 2rem; align-items: center;">
-                <div style="flex: 1; min-width: 250px;">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 1rem; text-align: center;">
-                        <div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">300s</div>
-                            <div id="stat-300" style="font-size: 1.5rem; font-weight: 700; color: #60a5fa;">-</div>
-                        </div>
-                        <div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">100s</div>
-                            <div id="stat-100" style="font-size: 1.5rem; font-weight: 700; color: #4ade80;">-</div>
-                        </div>
-                        <div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">50s</div>
-                            <div id="stat-50" style="font-size: 1.5rem; font-weight: 700; color: #fbbf24;">-</div>
-                        </div>
-                        <div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Misses</div>
-                            <div id="stat-miss" style="font-size: 1.5rem; font-weight: 700; color: #f87171;">-</div>
-                        </div>
-                        <div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Max Combo</div>
-                            <div id="stat-combo" style="font-size: 1.5rem; font-weight: 700; color: #c084fc;">-</div>
-                        </div>
-                        <div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Star Rating</div>
-                            <div id="stat-stars" style="font-size: 1.5rem; font-weight: 700; color: #facc15;">-</div>
-                        </div>
-                        <div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">PP Gained</div>
-                            <div id="stat-pp" style="font-size: 1.5rem; font-weight: 700; color: #ec4899;">-</div>
-                        </div>
-                    </div>
+<!-- PAGE HEADER -->
+<div class="page-header">
+    <div class="map-header">
+        <h1 class="map-title"><span class="gradient">{{ map_title }}</span></h1>
+        <div id="status-badge" class="badge badge-queued">{{ status }}</div>
+    </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+    <button class="tab active" data-tab="replay" id="tab-replay" onclick="switchTab('replay')">Replay</button>
+    <button class="tab" data-tab="details" id="tab-details" onclick="switchTab('details')">Explore Details</button>
+</div>
+
+<!-- TAB: REPLAY -->
+<div class="tab-content">
+<div class="tab-pane active" id="pane-replay">
+
+    <!-- PIPELINE STEPPER (always visible) -->
+    <div class="pipeline" id="pipeline">
+        <div class="pipeline-title">Rendering Pipeline</div>
+        <div style="position:relative">
+            <div class="pipeline-line"><div class="pipeline-line-fill" id="pipeline-fill"></div></div>
+            <div class="pipeline-steps">
+                <div class="pipeline-step pending" id="ps-queued">
+                    <div class="pipeline-dot">1</div>
+                    <div><div class="pipeline-label">Queued</div><div class="pipeline-desc">Job accepted</div></div>
                 </div>
-                <div style="width: 250px; height: 250px; margin: 0 auto;">
-                    <canvas id="hitsChart"></canvas>
+                <div class="pipeline-step pending" id="ps-setup">
+                    <div class="pipeline-dot">2</div>
+                    <div><div class="pipeline-label">Setup</div><div class="pipeline-desc">Downloading assets</div></div>
+                </div>
+                <div class="pipeline-step pending" id="ps-render">
+                    <div class="pipeline-dot">3</div>
+                    <div><div class="pipeline-label">Rendering</div><div class="pipeline-desc">GPU processing</div></div>
+                </div>
+                <div class="pipeline-step pending" id="ps-upload">
+                    <div class="pipeline-dot">4</div>
+                    <div><div class="pipeline-label">Uploading</div><div class="pipeline-desc">Cloud storage</div></div>
+                </div>
+                <div class="pipeline-step pending" id="ps-done">
+                    <div class="pipeline-dot">5</div>
+                    <div><div class="pipeline-label">Done</div><div class="pipeline-desc">Ready to watch</div></div>
                 </div>
             </div>
-        </div>
-
-        <div id="progress-section">
-            <div class="progress-container">
-                <div id="progress-bar" class="progress-bar"></div>
-            </div>
-            <div id="progress-text" class="progress-text">Waiting for GPU...</div>
-
-            <div
-                style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; margin-bottom: 1rem;">
-                <h3
-                    style="color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; margin: 0;">
-                    Real-time Logs</h3>
-                <button
-                    onclick="if(currentLogsUrl) { logsSeen=0; document.getElementById('logs').innerHTML=''; fetchLogs(currentLogsUrl); }"
-                    style="background: none; border: 1px solid var(--border); color: var(--text); padding: 0.35rem 0.85rem; border-radius: 4px; cursor: pointer; font-size: 0.75rem; transition: all 0.2s;"><i
-                        class="fas fa-sync-alt" style="margin-right: 4px;"></i> Refresh Logs</button>
-            </div>
-            <div id="logs" class="logs-container"></div>
         </div>
     </div>
 
-    <script>
-        let durationSec = 0;
-        let logsSeen = 0;
-        let currentLogsUrl = null;
+    <!-- PROGRESS BAR (shown while rendering) -->
+    <div class="progress-wrap" id="progress-section">
+        <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-bar"></div></div>
+        <div class="progress-label" id="progress-text">Waiting for worker...</div>
+    </div>
 
-        function formatJson(str) {
-            try {
-                const obj = JSON.parse(str);
-                const formatted = JSON.stringify(obj, null, 2);
-                return formatted.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
-                    let cls = 'log-json-number';
-                    if (/^"/.test(match)) {
-                        if (/:$/.test(match)) {
-                            cls = 'log-json-key';
-                        } else {
-                            cls = 'log-json-string';
-                        }
-                    } else if (/true|false/.test(match)) {
-                        cls = 'log-json-boolean';
-                    }
-                    return '<span class="' + cls + '">' + match + '</span>';
-                });
-            } catch (e) {
-                return null; // Not valid JSON
+    <!-- VIDEO (shown when complete) -->
+    <div id="video-section" style="display:none">
+        <div class="video-wrap">
+            <video id="v" controls poster="{{ thumb_url }}">{{ video_src_html | safe }}</video>
+        </div>
+        <div class="download-row">
+            <a id="d" href="{{ video_url }}" class="btn btn-primary">⬇ Download Render</a>
+        </div>
+    </div>
+
+    <!-- STATS -->
+    <div id="stats-section" style="display:none">
+        <div class="stats-grid">
+            <div class="stat-card"><div class="label">300s</div><div class="value" id="stat-300" style="color:#60a5fa">-</div></div>
+            <div class="stat-card"><div class="label">100s</div><div class="value" id="stat-100" style="color:#4ade80">-</div></div>
+            <div class="stat-card"><div class="label">50s</div><div class="value" id="stat-50" style="color:#fbbf24">-</div></div>
+            <div class="stat-card"><div class="label">Misses</div><div class="value" id="stat-miss" style="color:#f87171">-</div></div>
+            <div class="stat-card"><div class="label">Max Combo</div><div class="value" id="stat-combo" style="color:#c084fc">-</div></div>
+            <div class="stat-card"><div class="label">Star Rating</div><div class="value" id="stat-stars" style="color:#facc15">-</div></div>
+            <div class="stat-card"><div class="label">PP</div><div class="value" id="stat-pp" style="color:#ff66ab">-</div></div>
+        </div>
+
+        <!-- CHARTS -->
+        <div class="charts-grid">
+            <div class="chart-card"><h4>Hit Distribution</h4><div id="chart-hits" style="height:260px"></div></div>
+            <div class="chart-card"><h4>Accuracy Breakdown</h4><div id="chart-accuracy" style="height:260px"></div></div>
+            <div class="chart-card"><h4>Score Composition</h4><div id="chart-score" style="height:260px"></div></div>
+            <div class="chart-card"><h4>Performance Overview</h4><div id="chart-perf" style="height:260px"></div></div>
+        </div>
+    </div>
+</div>
+
+<!-- TAB: EXPLORE DETAILS -->
+<div class="tab-pane" id="pane-details">
+    <div class="detail-section">
+        <h3>📋 Job Information</h3>
+        <div class="detail-row"><span class="dk">Job ID</span><span class="dv">{{ job_id }}</span></div>
+        <div class="detail-row"><span class="dk">Status</span><span class="dv" id="detail-status">{{ status }}</span></div>
+        <div class="detail-row"><span class="dk">Created</span><span class="dv" id="detail-created">{{ created_at }}</span></div>
+        <div class="detail-row"><span class="dk">Updated</span><span class="dv" id="detail-updated">{{ updated_at }}</span></div>
+        <div class="detail-row"><span class="dk">Map Title</span><span class="dv">{{ map_title }}</span></div>
+        <div class="detail-row" id="error-row" style="display:none"><span class="dk" style="color:#f87171">Error</span><span class="dv" id="detail-error" style="color:#f87171">{{ error_message }}</span></div>
+    </div>
+
+    <div class="detail-section">
+        <h3>⚙️ Render Configuration</h3>
+        <pre class="config-pre" id="config-display">{{ config_json }}</pre>
+    </div>
+
+    <div class="detail-section">
+        <div class="logs-header">
+            <h3>📜 Render Logs</h3>
+            <button class="refresh-btn" onclick="refreshLogs()">↻ Refresh</button>
+        </div>
+        <div id="logs" class="logs-box"></div>
+    </div>
+</div>
+</div>
+
+<script>
+// ─── TAB SWITCHING ───
+function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+    document.getElementById('pane-' + (tab === 'details' ? 'details' : 'replay')).classList.add('active');
+}
+
+// ─── PIPELINE STEPPER ───
+const STEPS = ['queued','setup','render','upload','done'];
+const STEP_IDS = ['ps-queued','ps-setup','ps-render','ps-upload','ps-done'];
+function setPipelineStage(stage, failed) {
+    const idx = STEPS.indexOf(stage);
+    STEP_IDS.forEach((id, i) => {
+        const el = document.getElementById(id);
+        el.className = 'pipeline-step';
+        if (failed && i <= idx) { el.classList.add(i === idx ? 'failed' : 'done'); }
+        else if (i < idx) el.classList.add('done');
+        else if (i === idx) el.classList.add('active');
+        else el.classList.add('pending');
+        // Update dot content
+        const dot = el.querySelector('.pipeline-dot');
+        if (!failed && i < idx) dot.textContent = '✓';
+        else if (failed && i === idx) dot.textContent = '✕';
+        else dot.textContent = (i + 1).toString();
+    });
+    const fillPct = failed ? ((idx + 1) / STEPS.length * 100) : (idx / (STEPS.length - 1) * 100);
+    document.getElementById('pipeline-fill').style.width = fillPct + '%';
+}
+let currentPipelineStage = 'queued';
+
+// ─── LOG PARSING ───
+let logsSeen = 0, currentLogsUrl = null;
+function formatJson(str) {
+    try {
+        const obj = JSON.parse(str);
+        return JSON.stringify(obj, null, 2).replace(
+            /("(\\u[\da-fA-F]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g,
+            m => { let c='log-json-number'; if(/^"/.test(m)){c=/:$/.test(m)?'log-json-key':'log-json-string';}else if(/true|false/.test(m)){c='log-json-boolean';} return '<span class="'+c+'">'+m+'</span>'; }
+        );
+    } catch(e) { return null; }
+}
+
+function parseLogLine(line) {
+    if (!line.trim()) return '';
+    let html = '<div class="log-line">';
+    const tm = line.match(/^(\[\d{2}:\d{2}:\d{2}\])(.*)/);
+    let content = line;
+    if (tm) { html += `<span class="log-time">${tm[1]}</span>`; content = tm[2]; }
+    if (content.trim().startsWith('{') && content.trim().endsWith('}')) {
+        const j = formatJson(content);
+        if (j) return html + `<pre style="margin:0">${j}</pre></div>`;
+    }
+    const dp = content.match(/Progress:\s*(\d+)%,\s*Speed:\s*([\d.]+)x,\s*ETA:\s*(.+)/);
+    if (dp) {
+        document.getElementById('progress-bar').style.width = dp[1]+'%';
+        document.getElementById('progress-text').innerText = `Rendering — ${dp[1]}% (${dp[2]}x, ETA: ${dp[3]})`;
+        return '';
+    }
+    if (content.match(/\b(Error|failed|invalid)\b/i)) html += `<span class="log-error">✕ ${content}</span>`;
+    else if (content.match(/\b(Finished!|success|Loaded|Initialized!|loaded\.)\b/)) html += `<span class="log-success">✓ ${content}</span>`;
+    else if (content.match(/\bWarning\b/i)) html += `<span class="log-warn">⚠ ${content}</span>`;
+    else if (content.includes('Downloading')||content.includes('Starting')||content.includes('Uploading')) html += `<span class="log-info">ℹ ${content}</span>`;
+    else html += content;
+    html += '</div>';
+    return html;
+}
+
+function updatePipelineFromLog(line) {
+    if (line.includes("Setting up osu! directory") || line.includes("Downloading replay") || line.includes("Downloading beatmap") || line.includes("Downloading skin")) {
+        currentPipelineStage = 'setup'; setPipelineStage('setup', false);
+        document.getElementById('progress-text').innerText = 'Downloading assets...';
+    } else if (line.includes("Starting danser render")) {
+        currentPipelineStage = 'render'; setPipelineStage('render', false);
+        document.getElementById('progress-text').innerText = 'Rendering...';
+    } else if (line.includes("Uploading video")) {
+        currentPipelineStage = 'upload'; setPipelineStage('upload', false);
+        document.getElementById('progress-bar').style.width = '100%';
+        document.getElementById('progress-text').innerText = 'Uploading to cloud storage...';
+    }
+}
+
+async function fetchLogs(url) {
+    try {
+        const r = await fetch(url + '?t=' + Date.now());
+        if (!r.ok) return;
+        const text = await r.text();
+        if (text.length > logsSeen) {
+            const chunk = text.substring(logsSeen);
+            logsSeen = text.length;
+            let h = '';
+            for (let line of chunk.split(/[\r\n]+/)) {
+                if (!line.trim()) continue;
+                updatePipelineFromLog(line);
+                h += parseLogLine(line);
+            }
+            if (h) {
+                const el = document.getElementById('logs');
+                el.innerHTML += h;
+                el.scrollTop = el.scrollHeight;
             }
         }
+    } catch(e) { console.error(e); }
+}
 
-        function parseLogLine(line) {
-            if (!line.trim()) return '';
+function refreshLogs() {
+    if (currentLogsUrl) { logsSeen = 0; document.getElementById('logs').innerHTML = ''; fetchLogs(currentLogsUrl); }
+}
 
-            let html = '<div class="log-line">';
+// ─── CHARTS ───
+let chartsRendered = false;
+function renderCharts(stats) {
+    if (chartsRendered) return;
+    chartsRendered = true;
+    const h300 = stats['300s']||0, h100 = stats['100s']||0, h50 = stats['50s']||0, miss = stats['misses']||0;
+    const total = h300+h100+h50+miss || 1;
+    const acc = ((h300*300+h100*100+h50*50)/(total*300)*100);
 
-            // Match [HH:MM:SS] timestamp
-            const timeMatch = line.match(/^(\[\d{2}:\d{2}:\d{2}\])(.*)/);
-            let content = line;
+    // 1) Hit Distribution - Donut
+    new ApexCharts(document.getElementById('chart-hits'), {
+        chart:{type:'donut',height:260,background:'transparent',foreColor:'#9898b0'},
+        series:[h300,h100,h50,miss], labels:['300s','100s','50s','Misses'],
+        colors:['#60a5fa','#4ade80','#fbbf24','#f87171'],
+        stroke:{show:false}, plotOptions:{pie:{donut:{size:'60%',labels:{show:true,total:{show:true,label:'Total Hits',color:'#9898b0',formatter:()=>total}}}}},
+        legend:{position:'bottom',labels:{colors:'#9898b0'}},
+        dataLabels:{enabled:false},
+        tooltip:{theme:'dark'}
+    }).render();
 
-            if (timeMatch) {
-                html += `<span class="log-time">${timeMatch[1]}</span>`;
-                content = timeMatch[2];
-            }
+    // 2) Accuracy Gauge - Radial
+    new ApexCharts(document.getElementById('chart-accuracy'), {
+        chart:{type:'radialBar',height:260,background:'transparent'},
+        series:[acc.toFixed(1)], labels:['Accuracy'],
+        colors:[ acc>=98?'#4ade80':acc>=95?'#60a5fa':acc>=90?'#fbbf24':'#f87171' ],
+        plotOptions:{radialBar:{hollow:{size:'65%'},track:{background:'#2a2a42'},dataLabels:{name:{color:'#9898b0',fontSize:'14px'},value:{color:'#eeeef2',fontSize:'28px',fontWeight:800,formatter:v=>v+'%'}}}},
+        stroke:{lineCap:'round'}
+    }).render();
 
-            // Try parsing JSON block if it looks like one
-            if (content.trim().startsWith('{') && content.trim().endsWith('}')) {
-                const jsonHtml = formatJson(content);
-                if (jsonHtml) {
-                    html += `<pre style="margin: 0;">${jsonHtml}</pre>`;
-                    html += '</div>';
-                    return html;
-                }
-            }
+    // 3) Score Composition - Horizontal Bar
+    new ApexCharts(document.getElementById('chart-score'), {
+        chart:{type:'bar',height:260,background:'transparent',foreColor:'#9898b0',toolbar:{show:false}},
+        series:[{name:'Weighted Score',data:[h300*300,h100*100,h50*50]}],
+        colors:['#ff66ab'],
+        plotOptions:{bar:{horizontal:true,borderRadius:6,barHeight:'50%'}},
+        xaxis:{categories:['300s','100s','50s'],labels:{style:{colors:'#9898b0'}}},
+        yaxis:{labels:{style:{colors:'#9898b0'}}},
+        grid:{borderColor:'#2a2a42',strokeDashArray:4},
+        dataLabels:{enabled:true,style:{colors:['#eeeef2'],fontSize:'12px'},formatter:v=>v.toLocaleString()},
+        tooltip:{theme:'dark'}
+    }).render();
 
-            // Check for ffmpeg progress
-            // Check for Danser progress: "Progress: 15%, Speed: 1.42x, ETA: 2m46s"
-            const danserProgMatch = content.match(/Progress:\s*(\d+)%,\s*Speed:\s*([\d.]+)x,\s*ETA:\s*(.+)/);
-            if (danserProgMatch) {
-                let pct = parseInt(danserProgMatch[1]);
-                let speed = danserProgMatch[2];
-                let eta = danserProgMatch[3];
-                document.getElementById('progress-bar').style.width = pct + '%';
-                document.getElementById('progress-text').innerText = `Phase: Rendering Video - ${pct}% (Speed: ${speed}x, ETA: ${eta})`;
-                return ''; // Hide this log line from the output to reduce spam
-            }
+    // 4) Performance Overview - Radar
+    const combo = stats['max_combo']||0;
+    const sr = parseFloat(stats['star_rating'])||0;
+    const pp = parseFloat(stats['pp'])||0;
+    const maxV = Math.max(acc, (combo/20)||1, sr*10, pp/10, ((h300/total)*100)) || 1;
+    new ApexCharts(document.getElementById('chart-perf'), {
+        chart:{type:'radar',height:260,background:'transparent',foreColor:'#9898b0',toolbar:{show:false}},
+        series:[{name:'Performance',data:[
+            Math.min(acc, 100),
+            Math.min((combo/10), 100),
+            Math.min(sr*12, 100),
+            Math.min(pp/10, 100),
+            (h300/total*100)
+        ]}],
+        colors:['#b366ff'],
+        xaxis:{categories:['Accuracy','Combo','Stars','PP','Precision']},
+        yaxis:{show:false},
+        markers:{size:3,colors:['#b366ff']},
+        fill:{opacity:0.2},
+        stroke:{width:2},
+        plotOptions:{radar:{polygons:{strokeColors:'#2a2a42',connectorColors:'#2a2a42',fill:{colors:['transparent','rgba(255,255,255,.02)']}}}},
+        tooltip:{theme:'dark'}
+    }).render();
+}
 
-            // Apply colors
-            if (content.includes('Beatmap not found') || content.match(/\b(Error|failed|invalid)\b/i)) {
-                html += `<span class="log-error"><i class="fas fa-times-circle"></i> ${content}</span>`;
-            } else if (content.match(/\b(Finished!|success|Loaded|Initialized!|PERFECT|loaded\.)\b/)) {
-                html += `<span class="log-success"><i class="fas fa-check-circle"></i> ${content}</span>`;
-            } else if (content.match(/\bWarning\b/i)) {
-                html += `<span class="log-warn"><i class="fas fa-exclamation-triangle"></i> ${content}</span>`;
-            } else if (content.trim().startsWith('frame=')) {
-                html += `<span style="color: #6b7280; font-size: 0.85em; font-family: monospace;">${content}</span>`;
-            } else if (content.includes('Downloading') || content.includes('Starting') || content.includes('Uploading')) {
-                html += `<span style="color: #60a5fa;"><i class="fas fa-info-circle"></i> ${content}</span>`;
-            } else if (content.includes('Command:')) {
-                html += `<span style="color: #c084fc; font-family: monospace;">${content}</span>`;
-            } else {
-                html += content;
-            }
+// ─── POLLING ───
+async function check() {
+    try {
+        let r = await fetch('/v1/jobs/{{ job_id }}');
+        if (!r.ok) { setTimeout(check, 3000); return; }
+        let d = await r.json();
 
-            html += '</div>';
-            return html;
+        // Badge
+        const badge = document.getElementById('status-badge');
+        badge.innerText = d.status;
+        badge.className = 'badge badge-' + d.status;
+        document.getElementById('detail-status').innerText = d.status;
+        if (d.updated_at) document.getElementById('detail-updated').innerText = new Date(d.updated_at).toLocaleString();
+
+        // Config update
+        if (d.config && Object.keys(d.config).length > 0) {
+            document.getElementById('config-display').innerText = JSON.stringify(d.config, null, 2);
         }
 
-        async function fetchLogs(logsUrl) {
-            try {
-                const r = await fetch(logsUrl + '?t=' + Date.now());
-                if (!r.ok) return;
-                const text = await r.text();
-
-                if (text.length > logsSeen) {
-                    const newText = text.substring(logsSeen);
-                    logsSeen = text.length;
-
-                    // Split on both \n and \r because ffmpeg uses \r to overwrite progress
-                    const lines = newText.split(/[\r\n]+/);
-                    let logsHtml = '';
-                    for (let line of lines) {
-                        if (!line.trim()) continue;
-
-                        // Update phases based on known log lines
-                        if (line.includes("Setting up osu! directory")) {
-                            document.getElementById('progress-text').innerText = "Phase: Initializing Environment";
-                        } else if (line.includes("Downloading replay")) {
-                            document.getElementById('progress-text').innerText = "Phase: Downloading Replay";
-                        } else if (line.includes("Downloading beatmap set")) {
-                            document.getElementById('progress-text').innerText = "Phase: Downloading Beatmap";
-                        } else if (line.includes("Downloading skin")) {
-                            document.getElementById('progress-text').innerText = "Phase: Downloading Custom Skin";
-                        } else if (line.includes("Starting danser render")) {
-                            document.getElementById('progress-text').innerText = "Phase: Danser Engine Started";
-                        } else if (line.includes("Uploading video")) {
-                            document.getElementById('progress-text').innerText = "Phase: Uploading Result to Storage";
-                            document.getElementById('progress-bar').style.width = '100%';
-                        }
-
-                        logsHtml += parseLogLine(line);
-                    }
-
-                    if (logsHtml) {
-                        const logsContainer = document.getElementById('logs');
-                        logsContainer.innerHTML += logsHtml;
-                        logsContainer.scrollTop = logsContainer.scrollHeight;
-                    }
-                }
-            } catch (e) {
-                console.error(e);
-            }
+        // Stats
+        if (d.config && d.config.replay_stats) {
+            const s = d.config.replay_stats;
+            document.getElementById('stats-section').style.display = 'block';
+            document.getElementById('stat-300').innerText = s['300s'] !== undefined ? s['300s'] : '-';
+            document.getElementById('stat-100').innerText = s['100s'] !== undefined ? s['100s'] : '-';
+            document.getElementById('stat-50').innerText = s['50s'] !== undefined ? s['50s'] : '-';
+            document.getElementById('stat-miss').innerText = s['misses'] !== undefined ? s['misses'] : '-';
+            document.getElementById('stat-combo').innerText = s['max_combo'] ? s['max_combo']+'x' : '-';
+            document.getElementById('stat-stars').innerText = s['star_rating'] ? parseFloat(s['star_rating']).toFixed(2)+'★' : '-';
+            document.getElementById('stat-pp').innerText = s['pp'] ? parseFloat(s['pp']).toFixed(2)+'pp' : '-';
+            renderCharts(s);
         }
 
-        async function check() {
-            try {
-                let r = await fetch('/v1/jobs/{{ job_id }}');
-                if (!r.ok) {
-                    setTimeout(check, 3000);
-                    return;
-                }
-                let d = await r.json();
-
-                const badge = document.getElementById('status-badge');
-                badge.innerText = d.status;
-                badge.className = 'status-badge';
-                if (d.status === 'failed') badge.classList.add('status-failed');
-                if (d.status === 'completed') badge.classList.add('status-completed');
-                else badge.classList.add('status-running');
-
-                if (d.config && d.config.replay_stats) {
-                    const stats = d.config.replay_stats;
-                    document.getElementById('stats-section').style.display = 'block';
-                    document.getElementById('stat-300').innerText = stats['300s'] !== undefined ? stats['300s'] : '-';
-                    document.getElementById('stat-100').innerText = stats['100s'] !== undefined ? stats['100s'] : '-';
-                    document.getElementById('stat-50').innerText = stats['50s'] !== undefined ? stats['50s'] : '-';
-                    document.getElementById('stat-miss').innerText = stats['misses'] !== undefined ? stats['misses'] : '-';
-                    document.getElementById('stat-combo').innerText = stats['max_combo'] !== undefined ? stats['max_combo'] + 'x' : '-';
-                    document.getElementById('stat-stars').innerText = stats['star_rating'] ? parseFloat(stats['star_rating']).toFixed(2) + '★' : '-';
-                    document.getElementById('stat-pp').innerText = stats['pp'] ? parseFloat(stats['pp']).toFixed(2) + ' pp' : '-';
-
-                    if (!window.hitsChartRendered) {
-                        window.hitsChartRendered = true;
-                        const ctx = document.getElementById('hitsChart').getContext('2d');
-                        new Chart(ctx, {
-                            type: 'doughnut',
-                            data: {
-                                labels: ['300s', '100s', '50s', 'Misses'],
-                                datasets: [{
-                                    data: [stats['300s'] || 0, stats['100s'] || 0, stats['50s'] || 0, stats['misses'] || 0],
-                                    backgroundColor: ['#60a5fa', '#4ade80', '#fbbf24', '#f87171'],
-                                    borderWidth: 0,
-                                    hoverOffset: 4
-                                }]
-                            },
-                            options: {
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                plugins: {
-                                    legend: {
-                                        position: 'right',
-                                        labels: { color: '#f4f4f5', font: { family: 'Inter' } }
-                                    }
-                                }
-                            }
-                        });
-                    }
-                }
-
-                if (d.artifacts && d.artifacts.logs_url) {
-                    currentLogsUrl = d.artifacts.logs_url;
-                    await fetchLogs(d.artifacts.logs_url);
-                }
-
-                if (d.status === 'completed') {
-                    document.getElementById('progress-section').style.display = 'none';
-                    document.getElementById('video-section').style.display = 'block';
-                    let v = document.getElementById('v');
-                    if (!v.getAttribute('src') && v.innerHTML.trim() === '') {
-                        v.setAttribute('src', d.artifacts.video_url);
-                        document.getElementById('d').href = d.artifacts.video_url;
-                    }
-                    return;
-                } else if (d.status === 'failed') {
-                    document.getElementById('progress-bar').style.width = '100%';
-                    document.getElementById('progress-bar').style.background = '#ef4444';
-                    document.getElementById('progress-text').innerText = 'Render failed.';
-                    document.getElementById('progress-text').style.color = '#ef4444';
-                    return;
-                } else if (d.status === 'queued') {
-                    document.getElementById('progress-text').innerText = 'Waiting for worker...';
-                }
-
-                setTimeout(check, 3000);
-            } catch (e) {
-                setTimeout(check, 3000);
-            }
+        // Logs
+        if (d.artifacts && d.artifacts.logs_url) {
+            currentLogsUrl = d.artifacts.logs_url;
+            await fetchLogs(d.artifacts.logs_url);
         }
 
-        // Initial load
-        check();
-    </script>
+        // Completed
+        if (d.status === 'completed') {
+            setPipelineStage('done', false);
+            document.getElementById('progress-section').style.display = 'none';
+            document.getElementById('video-section').style.display = 'block';
+            let v = document.getElementById('v');
+            if (!v.getAttribute('src') && v.innerHTML.trim() === '') {
+                v.setAttribute('src', d.artifacts.video_url);
+                document.getElementById('d').href = d.artifacts.video_url;
+            }
+            return;
+        } else if (d.status === 'failed') {
+            setPipelineStage(currentPipelineStage, true);
+            document.getElementById('progress-bar').style.width = '100%';
+            document.getElementById('progress-bar').style.background = '#ef4444';
+            document.getElementById('progress-text').innerText = 'Render failed.';
+            document.getElementById('progress-text').style.color = '#f87171';
+            if (d.error_message) {
+                document.getElementById('error-row').style.display = 'flex';
+                document.getElementById('detail-error').innerText = d.error_message;
+            }
+            return;
+        } else if (d.status === 'queued') {
+            setPipelineStage('queued', false);
+        } else if (d.status === 'downloading') {
+            setPipelineStage('setup', false);
+        } else if (d.status === 'rendering') {
+            if (currentPipelineStage === 'queued' || currentPipelineStage === 'setup') {
+                currentPipelineStage = 'render';
+            }
+            setPipelineStage(currentPipelineStage, false);
+        }
+
+        setTimeout(check, 3000);
+    } catch(e) { setTimeout(check, 3000); }
+}
+
+// ─── INIT ───
+const _initStatus = '{{ status }}';
+const _initError = '{{ error_message }}';
+setPipelineStage('queued', false);
+if (_initStatus === 'completed') {
+    setPipelineStage('done', false);
+    document.getElementById('progress-section').style.display = 'none';
+    document.getElementById('video-section').style.display = 'block';
+} else if (_initStatus === 'failed') {
+    setPipelineStage('queued', true);
+    document.getElementById('progress-bar').style.width = '100%';
+    document.getElementById('progress-bar').style.background = '#ef4444';
+    document.getElementById('progress-text').innerText = 'Render failed.';
+}
+if (_initError) {
+    document.getElementById('error-row').style.display = 'flex';
+}
+check();
+</script>
 </body>
-
 </html>
