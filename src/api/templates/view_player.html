@@ -103,6 +103,7 @@
 
         <!-- CHARTS -->
         <div class="charts-grid">
+            <div class="chart-card"><h4>Hit Distribution</h4><div id="chart-hits" style="height:260px"></div></div>
             <div class="chart-card"><h4>Accuracy Breakdown</h4><div id="chart-accuracy" style="height:260px"></div></div>
             <div class="chart-card"><h4>Grade Thresholds</h4><div id="chart-grade" style="height:260px"></div></div>
         </div>
@@ -259,10 +260,21 @@ function renderCharts(stats) {
     const total = h300+h100+h50+miss || 1;
     const acc = ((h300*300+h100*100+h50*50)/(total*300)*100);
 
-    // 1) Accuracy Gauge - Radial
+    // 1) Hit Distribution - Donut
+    new ApexCharts(document.getElementById('chart-hits'), {
+        chart:{type:'donut',height:260,background:'transparent',foreColor:'#9898b0'},
+        series:[h300,h100,h50,miss], labels:['300s','100s','50s','Misses'],
+        colors:['#60a5fa','#4ade80','#fbbf24','#f87171'],
+        stroke:{show:false}, plotOptions:{pie:{donut:{size:'60%',labels:{show:true,total:{show:true,label:'Total Hits',color:'#9898b0',formatter:()=>total}}}}},
+        legend:{position:'bottom',labels:{colors:'#9898b0'}},
+        dataLabels:{enabled:false},
+        tooltip:{theme:'dark'}
+    }).render();
+
+    // 2) Accuracy Gauge - Radial
     new ApexCharts(document.getElementById('chart-accuracy'), {
         chart:{type:'radialBar',height:260,background:'transparent'},
-        series:[acc.toFixed(1)], labels:['Accuracy'],
+        series:[parseFloat(acc.toFixed(1))], labels:['Accuracy'],
         colors:[ acc>=98?'#4ade80':acc>=95?'#60a5fa':acc>=90?'#fbbf24':'#f87171' ],
         plotOptions:{radialBar:{hollow:{size:'65%'},track:{background:'#2a2a42'},dataLabels:{name:{color:'#9898b0',fontSize:'14px'},value:{color:'#eeeef2',fontSize:'28px',fontWeight:800,formatter:v=>v+'%'}}}},
         stroke:{lineCap:'round'}
