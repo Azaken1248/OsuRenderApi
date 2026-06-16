@@ -7,6 +7,7 @@
     <meta name="description" content="Watch this osu! replay render powered by OsuRender Cloud API.">
     <meta name="theme-color" content="#ff66ab">
     <link rel="stylesheet" href="/static/view_player.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 </head>
 <body>
@@ -19,7 +20,7 @@
             <span class="nav-title">OsuRender</span>
         </a>
         <div class="nav-links">
-            <a href="/" class="nav-link">← Back</a>
+            <a href="/" class="nav-link"><i class="fas fa-arrow-left"></i> Back</a>
         </div>
     </div>
 </nav>
@@ -84,7 +85,7 @@
             <video id="v" controls poster="{{ thumb_url }}">{{ video_src_html | safe }}</video>
         </div>
         <div class="download-row">
-            <a id="d" href="{{ video_url }}" class="btn btn-primary">⬇ Download Render</a>
+            <a id="d" href="{{ video_url }}" class="btn btn-primary"><i class="fas fa-download"></i> Download Render</a>
         </div>
     </div>
 
@@ -104,8 +105,8 @@
         <div class="charts-grid">
             <div class="chart-card"><h4>Hit Distribution</h4><div id="chart-hits" style="height:260px"></div></div>
             <div class="chart-card"><h4>Accuracy Breakdown</h4><div id="chart-accuracy" style="height:260px"></div></div>
-            <div class="chart-card"><h4>Score Composition</h4><div id="chart-score" style="height:260px"></div></div>
-            <div class="chart-card"><h4>Performance Overview</h4><div id="chart-perf" style="height:260px"></div></div>
+            <div class="chart-card"><h4>Hit Ratio</h4><div id="chart-ratio" style="height:260px"></div></div>
+            <div class="chart-card"><h4>Grade Thresholds</h4><div id="chart-grade" style="height:260px"></div></div>
         </div>
     </div>
 </div>
@@ -113,7 +114,7 @@
 <!-- TAB: EXPLORE DETAILS -->
 <div class="tab-pane" id="pane-details">
     <div class="detail-section">
-        <h3>📋 Job Information</h3>
+        <h3><i class="fas fa-clipboard-list"></i> Job Information</h3>
         <div class="detail-row"><span class="dk">Job ID</span><span class="dv">{{ job_id }}</span></div>
         <div class="detail-row"><span class="dk">Status</span><span class="dv" id="detail-status">{{ status }}</span></div>
         <div class="detail-row"><span class="dk">Created</span><span class="dv" id="detail-created">{{ created_at }}</span></div>
@@ -123,14 +124,14 @@
     </div>
 
     <div class="detail-section">
-        <h3>⚙️ Render Configuration</h3>
+        <h3><i class="fas fa-cog"></i> Render Configuration</h3>
         <pre class="config-pre" id="config-display">{{ config_json }}</pre>
     </div>
 
     <div class="detail-section">
         <div class="logs-header">
-            <h3>📜 Render Logs</h3>
-            <button class="refresh-btn" onclick="refreshLogs()">↻ Refresh</button>
+            <h3><i class="fas fa-scroll"></i> Render Logs</h3>
+            <button class="refresh-btn" onclick="refreshLogs()"><i class="fas fa-sync-alt"></i> Refresh</button>
         </div>
         <div id="logs" class="logs-box"></div>
     </div>
@@ -160,8 +161,8 @@ function setPipelineStage(stage, failed) {
         else el.classList.add('pending');
         // Update dot content
         const dot = el.querySelector('.pipeline-dot');
-        if (!failed && i < idx) dot.textContent = '✓';
-        else if (failed && i === idx) dot.textContent = '✕';
+        if (!failed && i < idx) dot.innerHTML = '<i class="fas fa-check"></i>';
+        else if (failed && i === idx) dot.innerHTML = '<i class="fas fa-xmark"></i>';
         else dot.textContent = (i + 1).toString();
     });
     const fillPct = failed ? ((idx + 1) / STEPS.length * 100) : (idx / (STEPS.length - 1) * 100);
@@ -197,10 +198,10 @@ function parseLogLine(line) {
         document.getElementById('progress-text').innerText = `Rendering — ${dp[1]}% (${dp[2]}x, ETA: ${dp[3]})`;
         return '';
     }
-    if (content.match(/\b(Error|failed|invalid)\b/i)) html += `<span class="log-error">✕ ${content}</span>`;
-    else if (content.match(/\b(Finished!|success|Loaded|Initialized!|loaded\.)\b/)) html += `<span class="log-success">✓ ${content}</span>`;
-    else if (content.match(/\bWarning\b/i)) html += `<span class="log-warn">⚠ ${content}</span>`;
-    else if (content.includes('Downloading')||content.includes('Starting')||content.includes('Uploading')) html += `<span class="log-info">ℹ ${content}</span>`;
+    if (content.match(/\b(Error|failed|invalid)\b/i)) html += `<span class="log-error"><i class="fas fa-circle-xmark"></i> ${content}</span>`;
+    else if (content.match(/\b(Finished!|success|Loaded|Initialized!|loaded\.)\b/)) html += `<span class="log-success"><i class="fas fa-circle-check"></i> ${content}</span>`;
+    else if (content.match(/\bWarning\b/i)) html += `<span class="log-warn"><i class="fas fa-triangle-exclamation"></i> ${content}</span>`;
+    else if (content.includes('Downloading')||content.includes('Starting')||content.includes('Uploading')) html += `<span class="log-info"><i class="fas fa-circle-info"></i> ${content}</span>`;
     else html += content;
     html += '</div>';
     return html;
@@ -276,41 +277,42 @@ function renderCharts(stats) {
         stroke:{lineCap:'round'}
     }).render();
 
-    // 3) Score Composition - Horizontal Bar
-    new ApexCharts(document.getElementById('chart-score'), {
+    // 3) Hit Ratio - % of total for each judgement
+    const pct300 = (h300/total*100).toFixed(1), pct100 = (h100/total*100).toFixed(1);
+    const pct50 = (h50/total*100).toFixed(1), pctMiss = (miss/total*100).toFixed(1);
+    new ApexCharts(document.getElementById('chart-ratio'), {
         chart:{type:'bar',height:260,background:'transparent',foreColor:'#9898b0',toolbar:{show:false}},
-        series:[{name:'Weighted Score',data:[h300*300,h100*100,h50*50]}],
-        colors:['#ff66ab'],
-        plotOptions:{bar:{horizontal:true,borderRadius:6,barHeight:'50%'}},
-        xaxis:{categories:['300s','100s','50s'],labels:{style:{colors:'#9898b0'}}},
-        yaxis:{labels:{style:{colors:'#9898b0'}}},
+        series:[{name:'% of Total',data:[parseFloat(pct300),parseFloat(pct100),parseFloat(pct50),parseFloat(pctMiss)]}],
+        colors:['#60a5fa','#4ade80','#fbbf24','#f87171'],
+        plotOptions:{bar:{distributed:true,borderRadius:6,columnWidth:'55%'}},
+        xaxis:{categories:['300s','100s','50s','Misses'],labels:{style:{colors:['#60a5fa','#4ade80','#fbbf24','#f87171'],fontSize:'12px'}}},
+        yaxis:{max:100,labels:{style:{colors:'#9898b0'},formatter:v=>v+'%'}},
         grid:{borderColor:'#2a2a42',strokeDashArray:4},
-        dataLabels:{enabled:true,style:{colors:['#eeeef2'],fontSize:'12px'},formatter:v=>v.toLocaleString()},
-        tooltip:{theme:'dark'}
+        dataLabels:{enabled:true,formatter:v=>v.toFixed(1)+'%',style:{colors:['#eeeef2'],fontSize:'11px'}},
+        legend:{show:false},
+        tooltip:{theme:'dark',y:{formatter:v=>v.toFixed(1)+'%'}}
     }).render();
 
-    // 4) Performance Overview - Radar
-    const combo = stats['max_combo']||0;
-    const sr = parseFloat(stats['star_rating'])||0;
-    const pp = parseFloat(stats['pp'])||0;
-    const maxV = Math.max(acc, (combo/20)||1, sr*10, pp/10, ((h300/total)*100)) || 1;
-    new ApexCharts(document.getElementById('chart-perf'), {
-        chart:{type:'radar',height:260,background:'transparent',foreColor:'#9898b0',toolbar:{show:false}},
-        series:[{name:'Performance',data:[
-            Math.min(acc, 100),
-            Math.min((combo/10), 100),
-            Math.min(sr*12, 100),
-            Math.min(pp/10, 100),
-            (h300/total*100)
-        ]}],
-        colors:['#b366ff'],
-        xaxis:{categories:['Accuracy','Combo','Stars','PP','Precision']},
-        yaxis:{show:false},
-        markers:{size:3,colors:['#b366ff']},
-        fill:{opacity:0.2},
-        stroke:{width:2},
-        plotOptions:{radar:{polygons:{strokeColors:'#2a2a42',connectorColors:'#2a2a42',fill:{colors:['transparent','rgba(255,255,255,.02)']}}}},
-        tooltip:{theme:'dark'}
+    // 4) Grade Thresholds - where accuracy falls on SS/S/A/B/C scale
+    const gradeThresholds = [
+        {name:'SS',min:100,color:'#facc15'},
+        {name:'S',min:95,color:'#4ade80'},
+        {name:'A',min:90,color:'#60a5fa'},
+        {name:'B',min:80,color:'#c084fc'},
+        {name:'C',min:70,color:'#f87171'}
+    ];
+    const gradeColors = gradeThresholds.map(g => acc >= g.min ? g.color : '#2a2a42');
+    new ApexCharts(document.getElementById('chart-grade'), {
+        chart:{type:'bar',height:260,background:'transparent',foreColor:'#9898b0',toolbar:{show:false}},
+        series:[{name:'Threshold',data:gradeThresholds.map(g=>g.min)},{name:'Your Accuracy',data:gradeThresholds.map(()=>parseFloat(acc.toFixed(1)))}],
+        colors:['#35355a','#ff66ab'],
+        plotOptions:{bar:{borderRadius:4,columnWidth:'60%'}},
+        xaxis:{categories:gradeThresholds.map(g=>g.name),labels:{style:{colors:'#9898b0',fontSize:'13px',fontWeight:600}}},
+        yaxis:{min:60,max:100,labels:{style:{colors:'#9898b0'},formatter:v=>v+'%'}},
+        grid:{borderColor:'#2a2a42',strokeDashArray:4},
+        dataLabels:{enabled:false},
+        legend:{labels:{colors:'#9898b0'}},
+        tooltip:{theme:'dark',y:{formatter:v=>v.toFixed(1)+'%'}}
     }).render();
 }
 
