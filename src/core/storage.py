@@ -40,11 +40,11 @@ class StorageClient:
             content_type=content_type,
         )
 
-    def get_presigned_url(self, object_name: str) -> str:
-        return self.client.presigned_get_object(
-            bucket_name=self.bucket,
-            object_name=object_name,
-        )
+    def get_presigned_url(self, object_name: str, expires=None) -> str:
+        kwargs = {"bucket_name": self.bucket, "object_name": object_name}
+        if expires:
+            kwargs["expires"] = expires
+        return self.client.presigned_get_object(**kwargs)
 
     def list_objects(self, prefix: str):
         return self.client.list_objects(self.bucket, prefix=prefix, recursive=True)

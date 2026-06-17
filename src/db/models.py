@@ -93,6 +93,12 @@ class Job(Base):
         Text,
         nullable=True,
     )
+    analytics_storage_key: Mapped[str | None] = mapped_column(
+        String(512),
+        nullable=True,
+    )
+    # TODO: When per-user analytics queries are added, consider:
+    # CREATE INDEX CONCURRENTLY idx_jobs_config ON jobs USING GIN (config jsonb_path_ops)
     retry_count: Mapped[int] = mapped_column(
         Integer,
         nullable=False,

@@ -6,9 +6,10 @@
     <title>OsuRender: {{ map_title }}</title>
     <meta name="description" content="Watch this osu! replay render powered by OsuRender Cloud API.">
     <meta name="theme-color" content="#ff66ab">
-    <link rel="stylesheet" href="/static/view_player.css?v=2">
+    <link rel="stylesheet" href="/static/view_player.css?v=3">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <script src="/static/analytics_charts.js?v=3"></script>
 </head>
 <body>
 
@@ -46,29 +47,27 @@
     <!-- PIPELINE STEPPER (always visible) -->
     <div class="pipeline" id="pipeline">
         <div class="pipeline-title">Rendering Pipeline</div>
-        <div style="position:relative">
-            <div class="pipeline-line"><div class="pipeline-line-fill" id="pipeline-fill"></div></div>
-            <div class="pipeline-steps">
-                <div class="pipeline-step pending" id="ps-queued">
-                    <div class="pipeline-dot">1</div>
-                    <div><div class="pipeline-label">Queued</div><div class="pipeline-desc">Job accepted</div></div>
-                </div>
-                <div class="pipeline-step pending" id="ps-setup">
-                    <div class="pipeline-dot">2</div>
-                    <div><div class="pipeline-label">Setup</div><div class="pipeline-desc">Downloading assets</div></div>
-                </div>
-                <div class="pipeline-step pending" id="ps-render">
-                    <div class="pipeline-dot">3</div>
-                    <div><div class="pipeline-label">Rendering</div><div class="pipeline-desc">GPU processing</div></div>
-                </div>
-                <div class="pipeline-step pending" id="ps-upload">
-                    <div class="pipeline-dot">4</div>
-                    <div><div class="pipeline-label">Uploading</div><div class="pipeline-desc">Cloud storage</div></div>
-                </div>
-                <div class="pipeline-step pending" id="ps-done">
-                    <div class="pipeline-dot">5</div>
-                    <div><div class="pipeline-label">Done</div><div class="pipeline-desc">Ready to watch</div></div>
-                </div>
+        <div class="pipeline-steps">
+            <div class="pipeline-line-fill" id="pipeline-fill"></div>
+            <div class="pipeline-step pending" id="ps-queued">
+                <div class="pipeline-dot">1</div>
+                <div><div class="pipeline-label">Queued</div><div class="pipeline-desc">Job accepted</div></div>
+            </div>
+            <div class="pipeline-step pending" id="ps-setup">
+                <div class="pipeline-dot">2</div>
+                <div><div class="pipeline-label">Setup</div><div class="pipeline-desc">Downloading assets</div></div>
+            </div>
+            <div class="pipeline-step pending" id="ps-render">
+                <div class="pipeline-dot">3</div>
+                <div><div class="pipeline-label">Rendering</div><div class="pipeline-desc">GPU processing</div></div>
+            </div>
+            <div class="pipeline-step pending" id="ps-upload">
+                <div class="pipeline-dot">4</div>
+                <div><div class="pipeline-label">Uploading</div><div class="pipeline-desc">Cloud storage</div></div>
+            </div>
+            <div class="pipeline-step pending" id="ps-done">
+                <div class="pipeline-dot">5</div>
+                <div><div class="pipeline-label">Done</div><div class="pipeline-desc">Ready to watch</div></div>
             </div>
         </div>
     </div>
@@ -101,17 +100,67 @@
             <div class="stat-card"><div class="label">PP</div><div class="value" id="stat-pp" style="color:#ff66ab">-</div></div>
         </div>
 
-        <!-- CHARTS -->
-        <div class="charts-grid">
-            <div class="chart-card"><h4>Hit Distribution</h4><div id="chart-hits" style="height:260px"></div></div>
-            <div class="chart-card"><h4>Accuracy Breakdown</h4><div id="chart-accuracy" style="height:260px"></div></div>
-            <div class="chart-card"><h4>Grade Thresholds</h4><div id="chart-grade" style="height:260px"></div></div>
+        <!-- CHARTS: Core Stats (always rendered from hit_counts) -->
+        <div class="chart-group" id="group-core">
+            <div class="chart-group-header" onclick="toggleGroup('group-core')">
+                <h3><i class="fas fa-chart-pie"></i> Core Stats</h3>
+                <i class="fas fa-chevron-down toggle-icon"></i>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-card"><h4>Hit Distribution</h4><div id="chart-hits" style="height:260px"></div></div>
+                <div class="chart-card"><h4>Accuracy Breakdown</h4><div id="chart-accuracy" style="height:260px"></div></div>
+                <div class="chart-card"><h4>Grade Thresholds</h4><div id="chart-grade" style="height:260px"></div></div>
+            </div>
+        </div>
 
-            <div class="chart-card chart-span-2"><h4>PP Over Time (Simulated) <i class="fas fa-flask" style="color:var(--accent);margin-left:5px" title="Requires Backend Data"></i></h4><div id="chart-pp-time" style="height:260px"></div></div>
-            <div class="chart-card"><h4>Unstable Rate (Simulated) <i class="fas fa-flask" style="color:var(--accent);margin-left:5px"></i></h4><div id="chart-ur" style="height:260px"></div></div>
+        <!-- CHARTS: Timing & Accuracy (needs life_bar + frames) -->
+        <div class="chart-group" id="group-timing">
+            <div class="chart-group-header" onclick="toggleGroup('group-timing')">
+                <h3><i class="fas fa-stopwatch"></i> Timing & Accuracy</h3>
+                <i class="fas fa-chevron-down toggle-icon"></i>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-card chart-span-2"><h4>Life Bar / HP Drain</h4><div id="chart-lifebar" style="height:260px"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading analytics...</div></div></div>
+                <div class="chart-card"><h4>Hit Error Distribution</h4><div id="chart-hiterror" style="height:260px"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div></div>
+                <div class="chart-card chart-span-3"><h4>Accuracy Over Time</h4><div id="chart-acctime" style="height:260px"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div></div>
+            </div>
+        </div>
 
-            <div class="chart-card chart-span-2"><h4>BPM vs Accuracy (Simulated) <i class="fas fa-flask" style="color:var(--accent);margin-left:5px"></i></h4><div id="chart-bpm-acc" style="height:260px"></div></div>
-            <div class="chart-card"><h4>Map BPM (Simulated) <i class="fas fa-flask" style="color:var(--accent);margin-left:5px"></i></h4><div id="chart-bpm-map" style="height:260px"></div></div>
+        <!-- CHARTS: Cursor & Aim (needs frames) -->
+        <div class="chart-group" id="group-cursor">
+            <div class="chart-group-header" onclick="toggleGroup('group-cursor')">
+                <h3><i class="fas fa-crosshairs"></i> Cursor & Aim</h3>
+                <i class="fas fa-chevron-down toggle-icon"></i>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-card"><h4>Cursor Heatmap</h4><div id="chart-heatmap" style="height:300px"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div></div>
+                <div class="chart-card"><h4>Aim Offset</h4><div id="chart-aimoffset" style="height:300px"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div></div>
+                <div class="chart-card"><h4>Cursor Speed</h4><div id="chart-cursorspeed" style="height:300px"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div></div>
+            </div>
+        </div>
+
+        <!-- CHARTS: Rhythm & Combo (needs frames) -->
+        <div class="chart-group" id="group-rhythm">
+            <div class="chart-group-header" onclick="toggleGroup('group-rhythm')">
+                <h3><i class="fas fa-drum"></i> Rhythm & Combo</h3>
+                <i class="fas fa-chevron-down toggle-icon"></i>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-card chart-span-2"><h4>Combo Over Time</h4><div id="chart-combo" style="height:260px"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div></div>
+                <div class="chart-card"><h4>Key Press Cadence</h4><div id="chart-keys" style="height:260px"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div></div>
+            </div>
+        </div>
+
+        <!-- CHARTS: Meta / Summary -->
+        <div class="chart-group" id="group-meta">
+            <div class="chart-group-header" onclick="toggleGroup('group-meta')">
+                <h3><i class="fas fa-radar"></i> Performance Summary</h3>
+                <i class="fas fa-chevron-down toggle-icon"></i>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-card"><h4>Skill Radar</h4><div id="chart-radar" style="height:300px"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div></div>
+                <div class="chart-card chart-span-2"><h4>Section Report Card</h4><div id="chart-sections" style="height:300px"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div></div>
+            </div>
         </div>
     </div>
 </div>

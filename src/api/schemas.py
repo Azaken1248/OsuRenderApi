@@ -90,6 +90,7 @@ class ArtifactLinks(BaseModel):
     video_url: Optional[str] = None
     thumbnail_url: Optional[str] = None
     logs_url: Optional[str] = None
+    analytics_url: Optional[str] = None
 
 
 class JobStatusResponse(BaseModel):
@@ -101,6 +102,7 @@ class JobStatusResponse(BaseModel):
     updated_at: datetime
     error_message: Optional[str] = None
     config: dict = {}
+    has_analytics: bool = False
     artifacts: ArtifactLinks = ArtifactLinks()
     model_config = {"from_attributes": True}
 
@@ -108,3 +110,49 @@ class JobStatusResponse(BaseModel):
 class JobListResponse(BaseModel):
     total: int
     jobs: list[JobStatusResponse]
+
+
+# ── Analytics endpoint schemas ────────────────────────────────────
+
+
+class ReplayIdentity(BaseModel):
+    username: Optional[str] = None
+    beatmap_hash: Optional[str] = None
+    game_mode: Optional[int] = None
+    mods: list[str] = []
+    mods_int: Optional[int] = None
+    score: Optional[int] = None
+    timestamp: Optional[str] = None
+
+
+class HitCounts(BaseModel):
+    count_300: int = Field(0, alias="300s")
+    count_100: int = Field(0, alias="100s")
+    count_50: int = Field(0, alias="50s")
+    misses: int = 0
+    gekis: int = 0
+    katus: int = 0
+    max_combo: int = 0
+    model_config = {"populate_by_name": True}
+
+
+class PerformanceData(BaseModel):
+    pp: float = 0
+    star_rating: Optional[float] = None
+
+
+class LifeBarEntry(BaseModel):
+    t: int
+    hp: float
+
+
+class AnalyticsResponse(BaseModel):
+    job_id: str
+    status: str
+    has_analytics: bool = False
+    identity: ReplayIdentity = ReplayIdentity()
+    hit_counts: HitCounts = HitCounts()
+    performance: PerformanceData = PerformanceData()
+    life_bar: list[LifeBarEntry] = []
+    frames_url: Optional[str] = None
+    frame_count: int = 0

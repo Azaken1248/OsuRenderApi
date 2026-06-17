@@ -106,3 +106,9 @@ zombie_jobs_reaped_total = Counter(
     "zombie_jobs_reaped_total",
     "Total number of zombie jobs reaped by the sweeper",
 )
+
+analytics_requests_total = Counter(
+    "analytics_requests_total",
+    "Total analytics endpoint calls",
+    ["outcome"],  # hit, miss, pending, error
+)

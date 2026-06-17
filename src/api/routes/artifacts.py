@@ -11,7 +11,16 @@ router = APIRouter()
     description="Returns a pre-signed URL to download or stream the artifact from object storage.",
 )
 async def get_artifact(request: Request, key: str):
-    valid_prefixes = ("logs/", "videos/", "thumbnails/", "replays/", "skins/")
+    # analytics/ added as fallback for expired presigned URLs — frames are
+    # primarily served via presigned URL from GET /v1/jobs/:id/analytics
+    valid_prefixes = (
+        "logs/",
+        "videos/",
+        "thumbnails/",
+        "replays/",
+        "skins/",
+        "analytics/",
+    )
     if not key.startswith(valid_prefixes):
         raise HTTPException(status_code=403, detail="Invalid artifact prefix")
 

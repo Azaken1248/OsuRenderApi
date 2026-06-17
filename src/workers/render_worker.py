@@ -1,6 +1,8 @@
 import asyncio
 import os
 import json
+import json as json_mod
+import gzip
 import uuid
 import httpx
 import tempfile
@@ -145,7 +147,102 @@ async def _process_render_job(job_id: str):
                             pass
 
                         c_dict = dict(job.config)
+
+                        # ── Frame extraction (isolated — must not block render) ──
+                        frames_key = None
+                        frame_count = 0
+                        try:
+                            frames = []
+                            if replay.replay_data:
+                                t_abs = 0
+                                game_mode = (
+                                    replay.mode.value
+                                )  # 0=STD, 1=Taiko, 2=CTB, 3=Mania
+                                for event in replay.replay_data:
+                                    # Skip the osrparse sentinel frame (-12345 encodes rng_seed)
+                                    if event.time_delta == -12345:
+                                        continue
+                                    t_abs += event.time_delta
+                                    # Guard against negative timestamps from malformed replays
+                                    if t_abs < 0:
+                                        continue
+                                    frames.append(
+                                        {
+                                            "t": t_abs,
+                                            # STD coords are whole numbers in practice; others can be fractional
+                                            "x": (
+                                                int(event.x)
+                                                if (
+                                                    game_mode == 0
+                                                    and hasattr(event, "x")
+                                                )
+                                                else (
+                                                    round(event.x, 2)
+                                                    if hasattr(event, "x")
+                                                    else 0
+                                                )
+                                            ),
+                                            "y": (
+                                                int(event.y)
+                                                if (
+                                                    game_mode == 0
+                                                    and hasattr(event, "y")
+                                                )
+                                                else (
+                                                    round(event.y, 2)
+                                                    if hasattr(event, "y")
+                                                    else 0
+                                                )
+                                            ),
+                                            # Key bitmask: M1=1, M2=2, K1=4, K2=8, Smoke=16
+                                            "keys": (
+                                                event.keys.value
+                                                if hasattr(event, "keys")
+                                                else 0
+                                            ),
+                                        }
+                                    )
+                                frame_count = len(frames)
+
+                                if frames:
+                                    frames_key = f"analytics/{job_id}_frames.json.gz"
+                                    frames_json = json_mod.dumps(frames).encode("utf-8")
+                                    frames_gz = gzip.compress(frames_json)
+                                    # upload_file() internally wraps bytes→BytesIO (storage.py L32-33)
+                                    upload_start = time.monotonic()
+                                    storage_client.upload_file(
+                                        object_name=frames_key,
+                                        data=frames_gz,
+                                        length=len(frames_gz),
+                                        content_type="application/gzip",
+                                    )
+                                    storage_operation_duration_seconds.labels(
+                                        operation="upload_frames"
+                                    ).observe(time.monotonic() - upload_start)
+                                    logger.info(
+                                        f"Uploaded {frame_count} frames ({len(frames_gz)} bytes gz) for job {job_id}"
+                                    )
+                        except Exception as e:
+                            # Frame extraction/upload failure must never abort the render
+                            logger.warning(
+                                f"Frame extraction failed for job {job_id}: {e}"
+                            )
+                            frames_key = None
+                            frame_count = 0
+
+                        # ── Mods decomposition with NC/PF dedup ──────────────
+                        raw_mods = [
+                            m.name for m in type(replay.mods) if m in replay.mods
+                        ]
+                        if "Nightcore" in raw_mods and "DoubleTime" in raw_mods:
+                            raw_mods.remove("DoubleTime")
+                        if "Perfect" in raw_mods and "SuddenDeath" in raw_mods:
+                            raw_mods.remove("SuddenDeath")
+                        mods_list = raw_mods
+
+                        # ── replay_stats — stored in job.config JSONB ────────
                         c_dict["replay_stats"] = {
+                            # existing (unchanged)
                             "300s": replay.count_300,
                             "100s": replay.count_100,
                             "50s": replay.count_50,
@@ -153,8 +250,37 @@ async def _process_render_job(job_id: str):
                             "max_combo": replay.max_combo,
                             "star_rating": beatmap_data.get("difficultyrating"),
                             "pp": pp_val,
+                            # identity
+                            "username": replay.username,
+                            "beatmap_hash": replay.beatmap_hash,
+                            "game_mode": replay.mode.value,
+                            "game_version": replay.game_version,
+                            "timestamp": (
+                                replay.timestamp.isoformat()
+                                if replay.timestamp
+                                else None
+                            ),
+                            "score": replay.score,
+                            "mods_int": replay.mods.value,
+                            "mods": mods_list,
+                            # extended hit counts
+                            "gekis": replay.count_geki,
+                            "katus": replay.count_katu,
+                            # frames reference
+                            "frames_key": frames_key,
+                            "frame_count": frame_count,
                         }
+
+                        # life_bar stored separately — only served via analytics endpoint
+                        # to avoid duplicating in both /v1/jobs/:id and /v1/jobs/:id/analytics
+                        c_dict["life_bar"] = [
+                            {"t": s.time, "hp": s.life}
+                            for s in (replay.life_bar_graph or [])
+                        ]
+
                         job.config = c_dict
+                        if frames_key:
+                            job.analytics_storage_key = frames_key
 
                         await db.commit()
                     else:
