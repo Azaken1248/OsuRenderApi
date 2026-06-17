@@ -6,10 +6,10 @@
     <title>OsuRender: {{ map_title }}</title>
     <meta name="description" content="Watch this osu! replay render powered by OsuRender Cloud API.">
     <meta name="theme-color" content="#ff66ab">
-    <link rel="stylesheet" href="/static/view_player.css?v=3">
+    <link rel="stylesheet" href="/static/view_player.css?v=4">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-    <script src="/static/analytics_charts.js?v=3"></script>
+    <script src="/static/analytics_charts.js?v=4"></script>
 </head>
 <body>
 
@@ -219,12 +219,12 @@ function setPipelineStage(stage, failed) {
         const el = document.getElementById(id);
         el.className = 'pipeline-step';
         if (failed && i <= idx) { el.classList.add(i === idx ? 'failed' : 'done'); }
-        else if (i < idx) el.classList.add('done');
+        else if (i < idx || (stage === 'done' && i === idx)) el.classList.add('done');
         else if (i === idx) el.classList.add('active');
         else el.classList.add('pending');
         // Update dot content
         const dot = el.querySelector('.pipeline-dot');
-        if (!failed && i < idx) dot.innerHTML = '<i class="fas fa-check"></i>';
+        if (!failed && (i < idx || (stage === 'done' && i === idx))) dot.innerHTML = '<i class="fas fa-check"></i>';
         else if (failed && i === idx) dot.innerHTML = '<i class="fas fa-xmark"></i>';
         else dot.textContent = (i + 1).toString();
     });
@@ -312,6 +312,8 @@ function refreshLogs() {
     if (currentLogsUrl) { logsSeen = 0; document.getElementById('logs').innerHTML = ''; fetchLogs(currentLogsUrl); }
 }
 
+let chartsRenderedCore = false;
+
 // ─── POLLING ───
 async function check() {
     try {
@@ -342,7 +344,6 @@ async function check() {
             document.getElementById('stat-combo').innerText = s['max_combo'] ? s['max_combo']+'x' : '-';
             document.getElementById('stat-stars').innerText = s['star_rating'] ? parseFloat(s['star_rating']).toFixed(2)+'★' : '-';
             document.getElementById('stat-pp').innerText = s['pp'] ? parseFloat(s['pp']).toFixed(2)+'pp' : '-';
-            let chartsRenderedCore = false;
             if (!chartsRenderedCore) {
                 renderCoreCharts(s);
                 chartsRenderedCore = true;

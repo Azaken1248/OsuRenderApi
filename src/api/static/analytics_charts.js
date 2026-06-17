@@ -393,7 +393,7 @@ async function loadAnalytics(jobId) {
                 catch(e) { showChartError('chart-radar', e.message); }
             } catch(e) {
                 console.error('Failed to fetch/decompress frames:', e);
-                ['chart-hiterror','chart-acctime','chart-heatmap','chart-aimoffset','chart-cursorspeed','chart-combo','chart-keys','chart-radar','chart-sections'].forEach(id => showChartError(id, 'Frame data unavailable'));
+                ['chart-lifebar','chart-hiterror','chart-acctime','chart-heatmap','chart-aimoffset','chart-cursorspeed','chart-combo','chart-keys','chart-radar','chart-sections'].forEach(id => showChartError(id, 'Frame data unavailable'));
             }
         } else {
             // No frames — clear skeletons

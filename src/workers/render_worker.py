@@ -112,6 +112,46 @@ async def _process_render_job(job_id: str):
                 except Exception:
                     h = "unknown"
 
+                current_phase = "extract_frames"
+                frames_key = None
+                frame_count = 0
+                try:
+                    frames = []
+                    if replay and replay.replay_data:
+                        t_abs = 0
+                        game_mode = replay.mode.value
+                        for event in replay.replay_data:
+                            if event.time_delta == -12345:
+                                continue
+                            t_abs += event.time_delta
+                            if t_abs < 0:
+                                continue
+                            frames.append({
+                                "t": t_abs,
+                                "x": int(event.x) if (game_mode == 0 and hasattr(event, "x")) else (round(event.x, 2) if hasattr(event, "x") else 0),
+                                "y": int(event.y) if (game_mode == 0 and hasattr(event, "y")) else (round(event.y, 2) if hasattr(event, "y") else 0),
+                                "keys": event.keys.value if hasattr(event, "keys") else 0
+                            })
+                        frame_count = len(frames)
+                        
+                        if frames:
+                            frames_key = f"analytics/{job_id}_frames.json.gz"
+                            frames_json = json_mod.dumps(frames).encode("utf-8")
+                            frames_gz = gzip.compress(frames_json)
+                            upload_start = time.monotonic()
+                            storage_client.upload_file(
+                                object_name=frames_key,
+                                data=frames_gz,
+                                length=len(frames_gz),
+                                content_type="application/gzip",
+                            )
+                            storage_operation_duration_seconds.labels(operation="upload_frames").observe(time.monotonic() - upload_start)
+                            logger.info(f"Uploaded {frame_count} frames ({len(frames_gz)} bytes gz) for job {job_id}")
+                except Exception as e:
+                    logger.warning(f"Frame extraction failed for job {job_id}: {e}")
+                    frames_key = None
+                    frame_count = 0
+
                 current_phase = "osu_api"
                 async with httpx.AsyncClient() as client:
                     if settings.osu_api_key and h != "unknown" and replay is not None:
@@ -147,88 +187,6 @@ async def _process_render_job(job_id: str):
                             pass
 
                         c_dict = dict(job.config)
-
-                        # ── Frame extraction (isolated — must not block render) ──
-                        frames_key = None
-                        frame_count = 0
-                        try:
-                            frames = []
-                            if replay.replay_data:
-                                t_abs = 0
-                                game_mode = (
-                                    replay.mode.value
-                                )  # 0=STD, 1=Taiko, 2=CTB, 3=Mania
-                                for event in replay.replay_data:
-                                    # Skip the osrparse sentinel frame (-12345 encodes rng_seed)
-                                    if event.time_delta == -12345:
-                                        continue
-                                    t_abs += event.time_delta
-                                    # Guard against negative timestamps from malformed replays
-                                    if t_abs < 0:
-                                        continue
-                                    frames.append(
-                                        {
-                                            "t": t_abs,
-                                            # STD coords are whole numbers in practice; others can be fractional
-                                            "x": (
-                                                int(event.x)
-                                                if (
-                                                    game_mode == 0
-                                                    and hasattr(event, "x")
-                                                )
-                                                else (
-                                                    round(event.x, 2)
-                                                    if hasattr(event, "x")
-                                                    else 0
-                                                )
-                                            ),
-                                            "y": (
-                                                int(event.y)
-                                                if (
-                                                    game_mode == 0
-                                                    and hasattr(event, "y")
-                                                )
-                                                else (
-                                                    round(event.y, 2)
-                                                    if hasattr(event, "y")
-                                                    else 0
-                                                )
-                                            ),
-                                            # Key bitmask: M1=1, M2=2, K1=4, K2=8, Smoke=16
-                                            "keys": (
-                                                event.keys.value
-                                                if hasattr(event, "keys")
-                                                else 0
-                                            ),
-                                        }
-                                    )
-                                frame_count = len(frames)
-
-                                if frames:
-                                    frames_key = f"analytics/{job_id}_frames.json.gz"
-                                    frames_json = json_mod.dumps(frames).encode("utf-8")
-                                    frames_gz = gzip.compress(frames_json)
-                                    # upload_file() internally wraps bytes→BytesIO (storage.py L32-33)
-                                    upload_start = time.monotonic()
-                                    storage_client.upload_file(
-                                        object_name=frames_key,
-                                        data=frames_gz,
-                                        length=len(frames_gz),
-                                        content_type="application/gzip",
-                                    )
-                                    storage_operation_duration_seconds.labels(
-                                        operation="upload_frames"
-                                    ).observe(time.monotonic() - upload_start)
-                                    logger.info(
-                                        f"Uploaded {frame_count} frames ({len(frames_gz)} bytes gz) for job {job_id}"
-                                    )
-                        except Exception as e:
-                            # Frame extraction/upload failure must never abort the render
-                            logger.warning(
-                                f"Frame extraction failed for job {job_id}: {e}"
-                            )
-                            frames_key = None
-                            frame_count = 0
 
                         # ── Mods decomposition with NC/PF dedup ──────────────
                         raw_mods = [
