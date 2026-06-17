@@ -349,6 +349,11 @@ async function check() {
             }
             if (d.has_analytics) {
                 loadAnalytics('{{ job_id }}');
+            } else if (d.status === 'completed' || d.status === 'failed') {
+                ['chart-lifebar','chart-hiterror','chart-acctime','chart-heatmap','chart-aimoffset','chart-cursorspeed','chart-combo','chart-keys','chart-radar','chart-sections'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el && el.querySelector('.chart-skeleton')) el.innerHTML = '<div class="chart-error"><i class="fas fa-info-circle"></i> No frame data available for this replay</div>';
+                });
             }
         }
 
