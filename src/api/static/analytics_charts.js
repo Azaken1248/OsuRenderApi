@@ -358,7 +358,10 @@ async function loadAnalytics(jobId) {
 
     try {
         const res = await fetch(`/v1/jobs/${jobId}/analytics`);
-        if (res.status === 202) return; // Analytics not ready
+        if (res.status === 202) {
+            analyticsLoaded = false;
+            return; // Analytics not ready, allow retry
+        }
         if (!res.ok) return;
         const data = await res.json();
 

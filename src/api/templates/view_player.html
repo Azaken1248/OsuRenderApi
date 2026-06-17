@@ -201,6 +201,12 @@ function switchTab(tab) {
     document.getElementById('pane-' + (tab === 'details' ? 'details' : 'replay')).classList.add('active');
 }
 
+// ─── CHART GROUP TOGGLE ───
+function toggleGroup(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('expanded');
+}
+
 // ─── PIPELINE STEPPER ───
 let pipelineLocked = false;
 const STEPS = ['queued','setup','render','upload','done'];
@@ -306,119 +312,6 @@ function refreshLogs() {
     if (currentLogsUrl) { logsSeen = 0; document.getElementById('logs').innerHTML = ''; fetchLogs(currentLogsUrl); }
 }
 
-// ─── CHARTS ───
-let chartsRendered = false;
-function renderCharts(stats) {
-    if (chartsRendered) return;
-    chartsRendered = true;
-    const h300 = stats['300s']||0, h100 = stats['100s']||0, h50 = stats['50s']||0, miss = stats['misses']||0;
-    const total = h300+h100+h50+miss || 1;
-    const acc = ((h300*300+h100*100+h50*50)/(total*300)*100);
-
-    // 1) Hit Distribution - Donut
-    new ApexCharts(document.getElementById('chart-hits'), {
-        chart:{type:'donut',height:260,background:'transparent',foreColor:'#9898b0'},
-        series:[h300,h100,h50,miss], labels:['300s','100s','50s','Misses'],
-        colors:['#60a5fa','#4ade80','#fbbf24','#f87171'],
-        stroke:{show:false}, plotOptions:{pie:{donut:{size:'60%',labels:{show:true,total:{show:true,label:'Total Hits',color:'#9898b0',formatter:()=>total}}}}},
-        legend:{position:'bottom',labels:{colors:'#9898b0'}},
-        dataLabels:{enabled:false},
-        tooltip:{theme:'dark'}
-    }).render();
-
-    // 2) Accuracy Gauge - Radial
-    new ApexCharts(document.getElementById('chart-accuracy'), {
-        chart:{type:'radialBar',height:260,background:'transparent'},
-        series:[parseFloat(acc.toFixed(1))], labels:['Accuracy'],
-        colors:[ acc>=98?'#4ade80':acc>=95?'#60a5fa':acc>=90?'#fbbf24':'#f87171' ],
-        plotOptions:{radialBar:{hollow:{size:'65%'},track:{background:'#2a2a42'},dataLabels:{name:{color:'#9898b0',fontSize:'14px'},value:{color:'#eeeef2',fontSize:'28px',fontWeight:800,formatter:v=>v+'%'}}}},
-        stroke:{lineCap:'round'}
-    }).render();
-
-    // 2) Grade Thresholds - where accuracy falls on SS/S/A/B/C scale
-    const gradeThresholds = [
-        {name:'SS',min:100,color:'#facc15'},
-        {name:'S',min:95,color:'#4ade80'},
-        {name:'A',min:90,color:'#60a5fa'},
-        {name:'B',min:80,color:'#c084fc'},
-        {name:'C',min:70,color:'#f87171'}
-    ];
-    const gradeColors = gradeThresholds.map(g => acc >= g.min ? g.color : '#2a2a42');
-    new ApexCharts(document.getElementById('chart-grade'), {
-        chart:{type:'bar',height:260,background:'transparent',foreColor:'#9898b0',toolbar:{show:false}},
-        series:[{name:'Threshold',data:gradeThresholds.map(g=>g.min)},{name:'Your Accuracy',data:gradeThresholds.map(()=>parseFloat(acc.toFixed(1)))}],
-        colors:['#35355a','#ff66ab'],
-        plotOptions:{bar:{borderRadius:4,columnWidth:'60%'}},
-        xaxis:{categories:gradeThresholds.map(g=>g.name),labels:{style:{colors:'#9898b0',fontSize:'13px',fontWeight:600}}},
-        yaxis:{min:60,max:100,labels:{style:{colors:'#9898b0'},formatter:v=>v+'%'}},
-        grid:{borderColor:'#2a2a42',strokeDashArray:4},
-        dataLabels:{enabled:false},
-        legend:{labels:{colors:'#9898b0'}},
-        tooltip:{theme:'dark',y:{formatter:v=>v.toFixed(1)+'%'}}
-    }).render();
-
-    // ─── MOCK CHARTS FOR UI DEMO ───
-    const generateTimeSeries = (count, min, max) => Array.from({length: count}, (_, i) => [new Date().getTime() - (count - i) * 10000, Math.random() * (max - min) + min]);
-
-    // 4) PP Over Time (Area)
-    const maxPP = parseFloat(stats['pp']) || 150;
-    const ppData = generateTimeSeries(30, 0, maxPP).sort((a,b)=>a[1]-b[1]); // Simulated progression
-    new ApexCharts(document.getElementById('chart-pp-time'), {
-        chart:{type:'area',height:260,background:'transparent',foreColor:'#9898b0',toolbar:{show:false}},
-        series:[{name:'PP Earned',data:ppData}],
-        colors:['#b366ff'],
-        stroke:{curve:'smooth',width:2},
-        fill:{type:'gradient',gradient:{shadeIntensity:1,opacityFrom:0.5,opacityTo:0.1,stops:[0,90,100]}},
-        xaxis:{type:'datetime',labels:{style:{colors:'#9898b0'}},tooltip:{enabled:false}},
-        yaxis:{labels:{style:{colors:'#9898b0'},formatter:v=>v.toFixed(0)}},
-        grid:{borderColor:'#2a2a42',strokeDashArray:4},
-        dataLabels:{enabled:false},
-        tooltip:{theme:'dark',x:{format:'mm:ss'}}
-    }).render();
-
-    // 5) Unstable Rate (Histogram/Bar)
-    const urData = [2, 5, 12, 25, 45, 85, 120, 150, 120, 85, 45, 25, 12, 5, 2];
-    const urLabels = ['-70','-60','-50','-40','-30','-20','-10','0','10','20','30','40','50','60','70'];
-    new ApexCharts(document.getElementById('chart-ur'), {
-        chart:{type:'bar',height:260,background:'transparent',foreColor:'#9898b0',toolbar:{show:false}},
-        series:[{name:'Hits',data:urData}],
-        colors:['#4ade80'],
-        plotOptions:{bar:{borderRadius:3,columnWidth:'80%'}},
-        xaxis:{categories:urLabels,labels:{style:{colors:'#9898b0',fontSize:'10px'}},tickAmount:7},
-        yaxis:{show:false},
-        grid:{show:false},
-        dataLabels:{enabled:false},
-        tooltip:{theme:'dark'}
-    }).render();
-
-    // 6) BPM vs Accuracy (Scatter)
-    const scatterData = Array.from({length: 40}, () => [Math.floor(Math.random() * 100) + 120, Math.random() * 5 + 90]);
-    new ApexCharts(document.getElementById('chart-bpm-acc'), {
-        chart:{type:'scatter',height:260,background:'transparent',foreColor:'#9898b0',toolbar:{show:false},zoom:{enabled:false}},
-        series:[{name:'Hit Objects',data:scatterData}],
-        colors:['#ff66ab'],
-        xaxis:{type:'numeric',min:100,max:250,tickAmount:5,title:{text:'BPM',style:{color:'#9898b0'}},labels:{style:{colors:'#9898b0'}}},
-        yaxis:{min:85,max:100,title:{text:'Accuracy %',style:{color:'#9898b0'}},labels:{style:{colors:'#9898b0'},formatter:v=>v.toFixed(0)+'%'}},
-        grid:{borderColor:'#2a2a42',strokeDashArray:4},
-        markers:{size:5,strokeWidth:0,hover:{size:7}},
-        tooltip:{theme:'dark',y:{formatter:v=>v.toFixed(1)+'%'}}
-    }).render();
-
-    // 7) Map BPM (Area)
-    new ApexCharts(document.getElementById('chart-bpm-map'), {
-        chart:{type:'area',height:260,background:'transparent',foreColor:'#9898b0',toolbar:{show:false}},
-        series:[{name:'BPM',data:generateTimeSeries(30, 160, 190)}],
-        colors:['#facc15'],
-        stroke:{curve:'stepline',width:2},
-        fill:{type:'gradient',gradient:{shadeIntensity:1,opacityFrom:0.5,opacityTo:0.1,stops:[0,90,100]}},
-        xaxis:{type:'datetime',labels:{style:{colors:'#9898b0'}},tooltip:{enabled:false}},
-        yaxis:{labels:{style:{colors:'#9898b0'},formatter:v=>v.toFixed(0)}},
-        grid:{borderColor:'#2a2a42',strokeDashArray:4},
-        dataLabels:{enabled:false},
-        tooltip:{theme:'dark',x:{format:'mm:ss'}}
-    }).render();
-}
-
 // ─── POLLING ───
 async function check() {
     try {
@@ -449,7 +342,14 @@ async function check() {
             document.getElementById('stat-combo').innerText = s['max_combo'] ? s['max_combo']+'x' : '-';
             document.getElementById('stat-stars').innerText = s['star_rating'] ? parseFloat(s['star_rating']).toFixed(2)+'★' : '-';
             document.getElementById('stat-pp').innerText = s['pp'] ? parseFloat(s['pp']).toFixed(2)+'pp' : '-';
-            renderCharts(s);
+            let chartsRenderedCore = false;
+            if (!chartsRenderedCore) {
+                renderCoreCharts(s);
+                chartsRenderedCore = true;
+            }
+            if (d.has_analytics) {
+                loadAnalytics('{{ job_id }}');
+            }
         }
 
         // Logs
