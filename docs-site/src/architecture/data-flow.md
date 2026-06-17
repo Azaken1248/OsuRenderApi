@@ -39,8 +39,9 @@ sequenceDiagram
     W->>DB: UPDATE SET status=downloading (WHERE status=queued)
     W->>S3: Download .osr replay
     W->>W: Parse replay (osrparse)
+    W->>S3: Upload extracted frame analytics
     W->>W: Fetch beatmap metadata (osu! API)
-    W->>DB: UPDATE map_title, beatmap_id, config
+    W->>DB: UPDATE map_title, beatmap_id, config, analytics_storage_key
 
     W->>DB: UPDATE SET status=rendering
     W->>G: gpu_render_task.spawn(...)
@@ -100,7 +101,7 @@ This ensures that even if duplicate Celery tasks are dispatched for the same job
 | Phase | Data Created | Storage |
 |-------|-------------|---------|
 | **Submission** | Job record, outbox event, `.osr` replay | PostgreSQL, S3 |
-| **Downloading** | Beatmap metadata, map title, replay stats | PostgreSQL |
+| **Downloading** | Beatmap metadata, map title, replay stats, extracted replay frames | PostgreSQL, S3 |
 | **Rendering** | Live render logs, progress updates | S3 (periodic), PostgreSQL |
 | **Completion** | `.mp4` video, `.jpg` thumbnail, final log | S3 |
 | **Failure** | Error message, partial logs | PostgreSQL, S3 |

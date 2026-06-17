@@ -23,6 +23,7 @@ erDiagram
         VARCHAR modal_call_id
         VARCHAR video_storage_key
         VARCHAR thumb_storage_key
+        VARCHAR analytics_storage_key
         TEXT error_message
         INTEGER retry_count
         TIMESTAMP created_at
@@ -63,6 +64,7 @@ The `jobs` table is the primary entity storing render job state.
 | `modal_call_id` | `VARCHAR(100)` | <img src="/icons/check.svg" width="16" style="display: inline-block; vertical-align: middle; margin-bottom: 2px;" /> | — | Modal function call ID (for polling fallback) |
 | `video_storage_key` | `VARCHAR(512)` | <img src="/icons/check.svg" width="16" style="display: inline-block; vertical-align: middle; margin-bottom: 2px;" /> | — | S3 key of rendered video |
 | `thumb_storage_key` | `VARCHAR(512)` | <img src="/icons/check.svg" width="16" style="display: inline-block; vertical-align: middle; margin-bottom: 2px;" /> | — | S3 key of thumbnail |
+| `analytics_storage_key` | `VARCHAR(512)` | <img src="/icons/check.svg" width="16" style="display: inline-block; vertical-align: middle; margin-bottom: 2px;" /> | — | S3 key of extracted analytics frames |
 | `error_message` | `TEXT` | <img src="/icons/check.svg" width="16" style="display: inline-block; vertical-align: middle; margin-bottom: 2px;" /> | — | Error details on failure |
 | `retry_count` | `INTEGER` | <img src="/icons/x.svg" width="16" style="display: inline-block; vertical-align: middle; margin-bottom: 2px;" /> | `0` | Number of dispatch retries |
 | `created_at` | `TIMESTAMP(tz)` | <img src="/icons/x.svg" width="16" style="display: inline-block; vertical-align: middle; margin-bottom: 2px;" /> | `now()` | Job creation time |

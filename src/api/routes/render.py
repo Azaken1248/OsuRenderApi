@@ -152,8 +152,10 @@ async def submit_render(
     job_id = uuid.uuid4()
     replay_key = f"replays/{job_id}/replay.osr"
 
+    import asyncio
     try:
-        storage_client.upload_file(
+        await asyncio.to_thread(
+            storage_client.upload_file,
             object_name=replay_key,
             data=replay.file,
             length=file_size,

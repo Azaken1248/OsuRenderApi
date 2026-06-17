@@ -49,10 +49,12 @@ Retrieve the current status, progress, metadata, and artifact links for a specif
       "pp": 425.8
     }
   },
+  "has_analytics": true,
   "artifacts": {
     "video_url": "/v1/artifacts/videos/550e8400-e29b-41d4-a716-446655440000.mp4",
     "thumbnail_url": "/v1/artifacts/thumbnails/550e8400-e29b-41d4-a716-446655440000.jpg",
-    "logs_url": "/v1/artifacts/logs/550e8400-e29b-41d4-a716-446655440000.log"
+    "logs_url": "/v1/artifacts/logs/550e8400-e29b-41d4-a716-446655440000.log",
+    "analytics_url": "/v1/jobs/550e8400-e29b-41d4-a716-446655440000/analytics"
   }
 }
 ```
@@ -137,3 +139,67 @@ curl "http://localhost:8727/v1/jobs?limit=10&status=completed"
 ::: tip Error Masking
 In production mode (`DEBUG=false`), `error_message` is replaced with a generic message: `"An internal rendering error occurred."` to prevent information leakage.
 :::
+
+---
+
+## GET /v1/jobs/{job_id}/analytics — Get Analytics Data
+
+<span class="custom-badge badge-get">GET</span> `/v1/jobs/{job_id}/analytics`
+
+Retrieve detailed replay analytics including timing offsets, aim coordinates, hit accuracy, and life bar tracking over the duration of the map. 
+
+### Path Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `job_id` | `UUID` | The job identifier |
+
+### Response (200 OK)
+
+Returns a highly detailed `AnalyticsResponse` object containing deep inspection metrics of the player's performance.
+
+```json
+{
+  "job_id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "completed",
+  "identity": {
+    "username": "Peppy",
+    "beatmap_hash": "a1b2c3d4e5f6...",
+    "game_mode": "osu!standard"
+  },
+  "performance": {
+    "score": 1234567,
+    "max_combo": 1847,
+    "perfect": false,
+    "mods": ["Hidden", "DoubleTime"],
+    "pp_earned": 425.8
+  },
+  "hit_counts": {
+    "300s": 1245,
+    "100s": 12,
+    "50s": 0,
+    "misses": 1,
+    "geki": 140,
+    "katu": 10
+  },
+  "life_bar": [
+    { "time": 1050, "health": 1.0 },
+    { "time": 2100, "health": 0.95 }
+  ],
+  "frames": [
+    { "t": 0, "x": 256, "y": 192, "keys": 0 },
+    { "t": 16, "x": 258, "y": 190, "keys": 1 }
+  ]
+}
+```
+
+### Async Polling Note
+
+Replay frames are extracted and uploaded to MinIO asynchronously. If the render job is still `queued`, `downloading`, or `rendering`, and the frame upload has not yet completed, the endpoint will return a `202 Accepted` response.
+
+| Status | Description |
+|--------|-------------|
+| `200 OK` | Analytics data is available and returned. |
+| `202 Accepted` | The job exists, but analytics extraction is still in progress. Check back later. |
+| `404 Not Found` | The specified job does not exist, or failed before analytics could be processed. |
+
