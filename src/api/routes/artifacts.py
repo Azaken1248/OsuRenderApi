@@ -25,16 +25,17 @@ async def get_artifact(request: Request, key: str):
         raise HTTPException(status_code=403, detail="Invalid artifact prefix")
 
     try:
-        if key.startswith("logs/"):
+        # For logs and analytics frames, proxy directly to avoid CORS/mixed-content on JS fetch()
+        if key.startswith("logs/") or key.startswith("analytics/"):
             try:
                 response = storage_client.client.get_object(
                     bucket_name=storage_client.bucket,
                     object_name=key,
                 )
                 with response:
-                    return Response(content=response.read(), media_type="text/plain")
+                    c_type = "application/gzip" if key.endswith(".gz") else "text/plain"
+                    return Response(content=response.read(), media_type=c_type)
             except Exception:
-
                 return Response(content="", media_type="text/plain")
 
         url = storage_client.client.presigned_get_object(

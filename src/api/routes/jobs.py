@@ -234,25 +234,10 @@ async def get_replay_analytics(
             },
         )
 
-    # Generate presigned URL with 1-hour TTL
     frames_url = None
     if frames_key:
-        try:
-            frames_url = storage_client.get_presigned_url(
-                frames_key, expires=timedelta(hours=1)
-            )
-            # Apply host rewrite for local dev (same pattern as artifacts.py)
-            if (
-                frames_url
-                and "minio:9000" in frames_url
-                and "minio:9000" not in str(request.base_url)
-            ):
-                external_host = request.url.hostname
-                frames_url = frames_url.replace("minio:9000", f"{external_host}:9000")
-            analytics_requests_total.labels(outcome="hit").inc()
-        except Exception as e:
-            logger.warning(f"Failed to generate presigned URL for {frames_key}: {e}")
-            analytics_requests_total.labels(outcome="error").inc()
+        frames_url = f"/v1/artifacts/{frames_key}"
+        analytics_requests_total.labels(outcome="hit").inc()
     else:
         analytics_requests_total.labels(outcome="miss").inc()
 
