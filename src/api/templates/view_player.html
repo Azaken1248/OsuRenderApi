@@ -6,10 +6,10 @@
     <title>OsuRender: {{ map_title }}</title>
     <meta name="description" content="Watch this osu! replay render powered by OsuRender Cloud API.">
     <meta name="theme-color" content="#ff66ab">
-    <link rel="stylesheet" href="/static/view_player.css?v=4">
+    <link rel="stylesheet" href="/static/view_player.css?v=5">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-    <script src="/static/analytics_charts.js?v=4"></script>
+    <script src="/static/analytics_charts.js?v=5"></script>
 </head>
 <body>
 
@@ -100,66 +100,42 @@
             <div class="stat-card"><div class="label">PP</div><div class="value" id="stat-pp" style="color:#ff66ab">-</div></div>
         </div>
 
-        <!-- CHARTS: Core Stats (always rendered from hit_counts) -->
         <div class="chart-group" id="group-core">
             <div class="chart-group-header" onclick="toggleGroup('group-core')">
-                <h3><i class="fas fa-chart-pie"></i> Core Stats</h3>
+                <h3><i class="fas fa-chart-pie"></i> Score Summary</h3>
                 <i class="fas fa-chevron-down toggle-icon"></i>
             </div>
             <div class="charts-grid">
-                <div class="chart-card"><h4>Hit Distribution</h4><div id="chart-hits" style="height:260px"></div></div>
-                <div class="chart-card"><h4>Accuracy Breakdown</h4><div id="chart-accuracy" style="height:260px"></div></div>
-                <div class="chart-card"><h4>Grade Thresholds</h4><div id="chart-grade" style="height:260px"></div></div>
+                <div class="chart-card"><h4>Hit Results</h4><div id="chart-hits" class="chart-box chart-box-sm"></div></div>
+                <div class="chart-card"><h4>Accuracy</h4><div id="chart-accuracy" class="chart-box chart-box-sm"></div></div>
+                <div class="chart-card"><h4>Judgement Impact</h4><div id="chart-judgement-impact" class="chart-box chart-box-sm"></div></div>
             </div>
         </div>
 
-        <!-- CHARTS: Timing & Accuracy (needs life_bar + frames) -->
         <div class="chart-group" id="group-timing">
             <div class="chart-group-header" onclick="toggleGroup('group-timing')">
-                <h3><i class="fas fa-stopwatch"></i> Timing & Accuracy</h3>
+                <h3><i class="fas fa-stopwatch"></i> Timing Inputs</h3>
                 <i class="fas fa-chevron-down toggle-icon"></i>
             </div>
             <div class="charts-grid">
-                <div class="chart-card chart-span-2"><h4>Life Bar / HP Drain</h4><div id="chart-lifebar" style="height:260px"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading analytics...</div></div></div>
-                <div class="chart-card"><h4>Hit Error Distribution</h4><div id="chart-hiterror" style="height:260px"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div></div>
-                <div class="chart-card chart-span-3"><h4>Accuracy Over Time</h4><div id="chart-acctime" style="height:260px"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div></div>
+                <div class="chart-card chart-span-2"><h4>Life Bar</h4><div id="chart-lifebar" class="chart-box"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading analytics...</div></div></div>
+                <div class="chart-card"><h4>Tap Intervals</h4><div id="chart-tap-intervals" class="chart-box chart-box-sm"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div></div>
+                <div class="chart-card"><h4>Input Balance</h4><div id="chart-input-balance" class="chart-box chart-box-sm"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div></div>
+                <div class="chart-card chart-span-2 chart-note">
+                    <h4>Object Timing</h4>
+                    <p>True hit-error and unstable-rate charts need hit-object matching from the beatmap. Replay frames alone only prove input timing, so this viewer avoids labeling tap intervals as hit error.</p>
+                </div>
             </div>
         </div>
 
-        <!-- CHARTS: Cursor & Aim (needs frames) -->
         <div class="chart-group" id="group-cursor">
             <div class="chart-group-header" onclick="toggleGroup('group-cursor')">
-                <h3><i class="fas fa-crosshairs"></i> Cursor & Aim</h3>
+                <h3><i class="fas fa-crosshairs"></i> Cursor Control</h3>
                 <i class="fas fa-chevron-down toggle-icon"></i>
             </div>
             <div class="charts-grid">
-                <div class="chart-card"><h4>Cursor Heatmap</h4><div id="chart-heatmap" style="height:300px"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div></div>
-                <div class="chart-card"><h4>Aim Offset</h4><div id="chart-aimoffset" style="height:300px"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div></div>
-                <div class="chart-card"><h4>Cursor Speed</h4><div id="chart-cursorspeed" style="height:300px"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div></div>
-            </div>
-        </div>
-
-        <!-- CHARTS: Rhythm & Combo (needs frames) -->
-        <div class="chart-group" id="group-rhythm">
-            <div class="chart-group-header" onclick="toggleGroup('group-rhythm')">
-                <h3><i class="fas fa-drum"></i> Rhythm & Combo</h3>
-                <i class="fas fa-chevron-down toggle-icon"></i>
-            </div>
-            <div class="charts-grid">
-                <div class="chart-card chart-span-2"><h4>Combo Over Time</h4><div id="chart-combo" style="height:260px"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div></div>
-                <div class="chart-card"><h4>Key Press Cadence</h4><div id="chart-keys" style="height:260px"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div></div>
-            </div>
-        </div>
-
-        <!-- CHARTS: Meta / Summary -->
-        <div class="chart-group" id="group-meta">
-            <div class="chart-group-header" onclick="toggleGroup('group-meta')">
-                <h3><i class="fas fa-radar"></i> Performance Summary</h3>
-                <i class="fas fa-chevron-down toggle-icon"></i>
-            </div>
-            <div class="charts-grid">
-                <div class="chart-card"><h4>Skill Radar</h4><div id="chart-radar" style="height:300px"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div></div>
-                <div class="chart-card chart-span-2"><h4>Section Report Card</h4><div id="chart-sections" style="height:300px"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div></div>
+                <div class="chart-card"><h4>Playfield Coverage</h4><div id="chart-heatmap" class="chart-box chart-box-lg"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div></div>
+                <div class="chart-card chart-span-2"><h4>Cursor Speed</h4><div id="chart-cursorspeed" class="chart-box chart-box-lg"><div class="chart-skeleton"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div></div>
             </div>
         </div>
     </div>
@@ -240,7 +216,7 @@ function formatJson(str) {
         const obj = JSON.parse(str);
         return JSON.stringify(obj, null, 2).replace(
             /("(\\u[\da-fA-F]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g,
-            m => { let c='log-json-number'; if(/^"/.test(m)){c=/:$/.test(m)?'log-json-key':'log-json-string';}else if(/true|false/.test(m)){c='log-json-boolean';} return '<span class="'+c+'">'+m+'</span>'; }
+            m => { let c='log-json-number'; if(/^"/.test(m)){c=/:$/.test(m)?'log-json-key':'log-json-string';}else if(/true|false/.test(m)){c='log-json-boolean';} return '<span class="'+c+'">'+escapeHtml(m)+'</span>'; }
         );
     } catch(e) { return null; }
 }
@@ -261,11 +237,12 @@ function parseLogLine(line) {
         document.getElementById('progress-text').innerText = `Rendering — ${dp[1]}% (${dp[2]}x, ETA: ${dp[3]})`;
         return '';
     }
-    if (content.match(/\b(Error|failed|invalid)\b/i)) html += `<span class="log-error"><i class="fas fa-circle-xmark"></i> ${content}</span>`;
-    else if (content.match(/\b(Finished!|success|Loaded|Initialized!|loaded\.)\b/)) html += `<span class="log-success"><i class="fas fa-circle-check"></i> ${content}</span>`;
-    else if (content.match(/\bWarning\b/i)) html += `<span class="log-warn"><i class="fas fa-triangle-exclamation"></i> ${content}</span>`;
-    else if (content.includes('Downloading')||content.includes('Starting')||content.includes('Uploading')) html += `<span class="log-info"><i class="fas fa-circle-info"></i> ${content}</span>`;
-    else html += content;
+    const safeContent = escapeHtml(content);
+    if (content.match(/\b(Error|failed|invalid)\b/i)) html += `<span class="log-error"><i class="fas fa-circle-xmark"></i> ${safeContent}</span>`;
+    else if (content.match(/\b(Finished!|success|Loaded|Initialized!|loaded\.)\b/)) html += `<span class="log-success"><i class="fas fa-circle-check"></i> ${safeContent}</span>`;
+    else if (content.match(/\bWarning\b/i)) html += `<span class="log-warn"><i class="fas fa-triangle-exclamation"></i> ${safeContent}</span>`;
+    else if (content.includes('Downloading')||content.includes('Starting')||content.includes('Uploading')) html += `<span class="log-info"><i class="fas fa-circle-info"></i> ${safeContent}</span>`;
+    else html += safeContent;
     html += '</div>';
     return html;
 }
@@ -351,7 +328,7 @@ async function check() {
             if (d.has_analytics) {
                 loadAnalytics('{{ job_id }}');
             } else if (d.status === 'completed' || d.status === 'failed') {
-                ['chart-lifebar','chart-hiterror','chart-acctime','chart-heatmap','chart-aimoffset','chart-cursorspeed','chart-combo','chart-keys','chart-radar','chart-sections'].forEach(id => {
+                ['chart-lifebar','chart-tap-intervals','chart-input-balance','chart-heatmap','chart-cursorspeed'].forEach(id => {
                     const el = document.getElementById(id);
                     if (el && el.querySelector('.chart-skeleton')) el.innerHTML = '<div class="chart-error"><i class="fas fa-info-circle"></i> No frame data available for this replay</div>';
                 });

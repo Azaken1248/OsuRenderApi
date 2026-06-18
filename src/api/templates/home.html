@@ -30,7 +30,7 @@
             --accent: #ff66ab;
             --accent-dim: #cc4e88;
             --accent-glow: rgba(255, 102, 171, 0.25);
-            --accent-secondary: #b366ff;
+            --accent-secondary: #22d3ee;
             --text-primary: #eeeef2;
             --text-secondary: #9898b0;
             --text-muted: #6a6a82;
@@ -39,9 +39,9 @@
             --shadow-neu-up: 6px 6px 14px rgba(0, 0, 0, 0.45), -6px -6px 14px rgba(50, 50, 80, 0.12);
             --shadow-neu-down: inset 4px 4px 10px rgba(0, 0, 0, 0.35), inset -4px -4px 10px rgba(50, 50, 80, 0.08);
             --shadow-float: 0 12px 40px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3);
-            --radius: 16px;
-            --radius-sm: 10px;
-            --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --radius: 8px;
+            --radius-sm: 6px;
+            --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         html {
@@ -55,6 +55,7 @@
             line-height: 1.6;
             overflow-x: hidden;
             min-height: 100vh;
+            letter-spacing: 0;
         }
 
         /* ─── NAV ─── */
@@ -102,7 +103,7 @@
             font-weight: 700;
             font-size: 1.25rem;
             color: var(--text-primary);
-            letter-spacing: -0.02em;
+            letter-spacing: 0;
         }
 
         .nav-links {
@@ -147,67 +148,6 @@
             overflow: hidden;
         }
 
-        .hero::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background:
-                radial-gradient(ellipse 800px 500px at 30% 20%, rgba(255, 102, 171, 0.08) 0%, transparent 60%),
-                radial-gradient(ellipse 600px 400px at 70% 80%, rgba(179, 102, 255, 0.06) 0%, transparent 60%);
-            pointer-events: none;
-        }
-
-        /* Floating circles */
-        .hero-orb {
-            position: absolute;
-            border-radius: 50%;
-            pointer-events: none;
-            opacity: 0.12;
-        }
-
-        .hero-orb--1 {
-            width: 400px;
-            height: 400px;
-            top: -100px;
-            right: -80px;
-            background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
-            animation: orb-float 12s ease-in-out infinite;
-        }
-
-        .hero-orb--2 {
-            width: 250px;
-            height: 250px;
-            bottom: -60px;
-            left: -40px;
-            background: radial-gradient(circle, var(--accent-secondary) 0%, transparent 70%);
-            animation: orb-float 16s ease-in-out infinite reverse;
-        }
-
-        .hero-orb--3 {
-            width: 150px;
-            height: 150px;
-            top: 40%;
-            left: 15%;
-            background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
-            animation: orb-float 10s ease-in-out infinite 2s;
-        }
-
-        @keyframes orb-float {
-
-            0%,
-            100% {
-                transform: translate(0, 0) scale(1);
-            }
-
-            33% {
-                transform: translate(30px, -20px) scale(1.05);
-            }
-
-            66% {
-                transform: translate(-20px, 15px) scale(0.95);
-            }
-        }
-
         .hero-badge {
             display: inline-flex;
             align-items: center;
@@ -219,7 +159,7 @@
             color: var(--accent);
             font-size: 0.8rem;
             font-weight: 600;
-            letter-spacing: 0.04em;
+            letter-spacing: 0;
             text-transform: uppercase;
             margin-bottom: 2rem;
             box-shadow: var(--shadow-neu-up);
@@ -249,11 +189,11 @@
 
         .hero h1 {
             position: relative;
-            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-size: 4rem;
             font-weight: 800;
             line-height: 1.1;
             margin-bottom: 1.5rem;
-            letter-spacing: -0.03em;
+            letter-spacing: 0;
         }
 
         .hero h1 .gradient-text {
@@ -334,16 +274,16 @@
             font-size: 0.8rem;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.12em;
+            letter-spacing: 0;
             margin-bottom: 0.75rem;
         }
 
         .section-title {
             text-align: center;
-            font-size: clamp(1.6rem, 3vw, 2.2rem);
+            font-size: 2rem;
             font-weight: 700;
             margin-bottom: 3.5rem;
-            letter-spacing: -0.02em;
+            letter-spacing: 0;
         }
 
         .features-grid {
@@ -388,7 +328,7 @@
         .feature-icon {
             width: 52px;
             height: 52px;
-            border-radius: 14px;
+            border-radius: var(--radius);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -403,7 +343,7 @@
         }
 
         .feature-icon--cloud {
-            background: linear-gradient(135deg, rgba(179, 102, 255, 0.15), rgba(179, 102, 255, 0.05));
+            background: linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(34, 211, 238, 0.05));
             color: var(--accent-secondary);
         }
 
@@ -416,7 +356,7 @@
             font-size: 1.15rem;
             font-weight: 700;
             margin-bottom: 0.6rem;
-            letter-spacing: -0.01em;
+            letter-spacing: 0;
         }
 
         .feature-card p {
@@ -461,7 +401,7 @@
             color: var(--text-muted);
             font-weight: 500;
             text-transform: uppercase;
-            letter-spacing: 0.06em;
+            letter-spacing: 0;
         }
 
         /* ─── HOW IT WORKS ─── */
@@ -609,6 +549,10 @@
                 padding: 5rem 1.5rem 4rem;
             }
 
+            .hero h1 {
+                font-size: 2.75rem;
+            }
+
             .hero-sub {
                 font-size: 1.05rem;
             }
@@ -663,9 +607,7 @@
                 grid-template-columns: 1fr;
             }
 
-            .hero h1 {
-                font-size: 2rem;
-            }
+            .hero h1 { font-size: 2rem; }
         }
     </style>
 </head>
@@ -689,10 +631,6 @@
 
     <!-- HERO -->
     <section class="hero" id="hero">
-        <div class="hero-orb hero-orb--1"></div>
-        <div class="hero-orb hero-orb--2"></div>
-        <div class="hero-orb hero-orb--3"></div>
-
         <div class="hero-badge">
             <span class="hero-badge-dot"></span>
             Cloud GPU Rendering
