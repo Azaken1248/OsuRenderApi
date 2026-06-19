@@ -404,3 +404,229 @@ async function loadAnalytics(jobId) {
         console.error('Analytics load failed:', e);
     }
 }
+
+// ─── TAB SWITCHING ───
+function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+    document.getElementById('pane-' + (tab === 'details' ? 'details' : 'replay')).classList.add('active');
+}
+
+// ─── CHART GROUP TOGGLE ───
+function toggleGroup(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('collapsed');
+}
+
+// ─── PIPELINE STEPPER ───
+let pipelineLocked = false;
+const STEPS = ['queued','setup','render','upload','done'];
+const STEP_IDS = ['ps-queued','ps-setup','ps-render','ps-upload','ps-done'];
+function setPipelineStage(stage, failed) {
+    if (pipelineLocked) return;
+    if (stage === 'done' || failed) pipelineLocked = true;
+    const idx = STEPS.indexOf(stage);
+    STEP_IDS.forEach((id, i) => {
+        const el = document.getElementById(id);
+        el.className = 'pipeline-step';
+        if (failed && i <= idx) { el.classList.add(i === idx ? 'failed' : 'done'); }
+        else if (i < idx || (stage === 'done' && i === idx)) el.classList.add('done');
+        else if (i === idx) el.classList.add('active');
+        else el.classList.add('pending');
+        const dot = el.querySelector('.pipeline-dot');
+        if (!failed && (i < idx || (stage === 'done' && i === idx))) dot.innerHTML = '<i class="fas fa-check"></i>';
+        else if (failed && i === idx) dot.innerHTML = '<i class="fas fa-xmark"></i>';
+        else dot.textContent = (i + 1).toString();
+    });
+    const fillPct = failed ? ((idx + 1) / STEPS.length * 100) : (idx / (STEPS.length - 1) * 100);
+    document.getElementById('pipeline-fill').style.width = fillPct + '%';
+}
+let currentPipelineStage = 'queued';
+
+// ─── LOG PARSING ───
+let logsSeen = 0, currentLogsUrl = null;
+function formatJson(str) {
+    try {
+        const obj = JSON.parse(str);
+        return JSON.stringify(obj, null, 2).replace(
+            /("(\\u[\da-fA-F]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g,
+            m => { let c='log-json-number'; if(/^"/.test(m)){c=/:$/.test(m)?'log-json-key':'log-json-string';}else if(/true|false/.test(m)){c='log-json-boolean';} return '<span class="'+c+'">'+escapeHtml(m)+'</span>'; }
+        );
+    } catch(e) { return null; }
+}
+
+function parseLogLine(line) {
+    if (!line.trim()) return '';
+    let html = '<div class="log-line">';
+    const tm = line.match(/^(\[\d{2}:\d{2}:\d{2}\])(.*)/);
+    let content = line;
+    if (tm) { html += `<span class="log-time">${tm[1]}</span>`; content = tm[2]; }
+    if (content.trim().startsWith('{') && content.trim().endsWith('}')) {
+        const j = formatJson(content);
+        if (j) return html + `<pre style="margin:0">${j}</pre></div>`;
+    }
+    const dp = content.match(/Progress:\s*(\d+)%,\s*Speed:\s*([\d.]+)x,\s*ETA:\s*(.+)/);
+    if (dp) {
+        document.getElementById('progress-bar').style.width = dp[1]+'%';
+        document.getElementById('progress-text').innerText = `Rendering — ${dp[1]}% (${dp[2]}x, ETA: ${dp[3]})`;
+        return '';
+    }
+    const safeContent = escapeHtml(content);
+    if (content.match(/\b(Error|failed|invalid)\b/i)) html += `<span class="log-error"><i class="fas fa-circle-xmark"></i> ${safeContent}</span>`;
+    else if (content.match(/\b(Finished!|success|Loaded|Initialized!|loaded\.)\b/)) html += `<span class="log-success"><i class="fas fa-circle-check"></i> ${safeContent}</span>`;
+    else if (content.match(/\bWarning\b/i)) html += `<span class="log-warn"><i class="fas fa-triangle-exclamation"></i> ${safeContent}</span>`;
+    else if (content.includes('Downloading')||content.includes('Starting')||content.includes('Uploading')) html += `<span class="log-info"><i class="fas fa-circle-info"></i> ${safeContent}</span>`;
+    else html += safeContent;
+    html += '</div>';
+    return html;
+}
+
+function updatePipelineFromLog(line) {
+    if (pipelineLocked) return;
+    if (line.includes("Setting up osu! directory") || line.includes("Downloading replay") || line.includes("Downloading beatmap") || line.includes("Downloading skin")) {
+        currentPipelineStage = 'setup'; setPipelineStage('setup', false);
+        document.getElementById('progress-text').innerText = 'Downloading assets...';
+    } else if (line.includes("Starting danser render")) {
+        currentPipelineStage = 'render'; setPipelineStage('render', false);
+        document.getElementById('progress-text').innerText = 'Rendering...';
+    } else if (line.includes("Uploading video")) {
+        currentPipelineStage = 'upload'; setPipelineStage('upload', false);
+        document.getElementById('progress-bar').style.width = '100%';
+        document.getElementById('progress-text').innerText = 'Uploading to cloud storage...';
+    }
+}
+
+async function fetchLogs(url) {
+    try {
+        const r = await fetch(url + '?t=' + Date.now());
+        if (!r.ok) return;
+        const text = await r.text();
+        if (text.length > logsSeen) {
+            const chunk = text.substring(logsSeen);
+            logsSeen = text.length;
+            let h = '';
+            for (let line of chunk.split(/[\r\n]+/)) {
+                if (!line.trim()) continue;
+                updatePipelineFromLog(line);
+                h += parseLogLine(line);
+            }
+            if (h) {
+                const el = document.getElementById('logs');
+                el.innerHTML += h;
+                el.scrollTop = el.scrollHeight;
+            }
+        }
+    } catch(e) { console.error(e); }
+}
+
+function refreshLogs() {
+    if (currentLogsUrl) { logsSeen = 0; document.getElementById('logs').innerHTML = ''; fetchLogs(currentLogsUrl); }
+}
+
+let chartsRenderedCore = false;
+
+// ─── POLLING ───
+async function check() {
+    try {
+        let r = await fetch('/v1/jobs/' + window.JOB_ID);
+        if (!r.ok) { setTimeout(check, 3000); return; }
+        let d = await r.json();
+
+        const badge = document.getElementById('status-badge');
+        badge.innerText = d.status;
+        badge.className = 'badge badge-' + d.status;
+        document.getElementById('detail-status').innerText = d.status;
+        if (d.updated_at) document.getElementById('detail-updated').innerText = new Date(d.updated_at).toLocaleString();
+
+        if (d.config && Object.keys(d.config).length > 0) {
+            document.getElementById('config-display').innerText = JSON.stringify(d.config, null, 2);
+        }
+
+        if (d.config && d.config.replay_stats) {
+            const s = d.config.replay_stats;
+            document.getElementById('stats-section').style.display = 'block';
+            document.getElementById('stat-300').innerText = s['300s'] !== undefined ? s['300s'] : '-';
+            document.getElementById('stat-100').innerText = s['100s'] !== undefined ? s['100s'] : '-';
+            document.getElementById('stat-50').innerText = s['50s'] !== undefined ? s['50s'] : '-';
+            document.getElementById('stat-miss').innerText = s['misses'] !== undefined ? s['misses'] : '-';
+            document.getElementById('stat-combo').innerText = s['max_combo'] ? s['max_combo']+'x' : '-';
+            document.getElementById('stat-stars').innerText = s['star_rating'] ? parseFloat(s['star_rating']).toFixed(2)+'★' : '-';
+            document.getElementById('stat-pp').innerText = s['pp'] ? parseFloat(s['pp']).toFixed(2)+'pp' : '-';
+            if (!chartsRenderedCore) {
+                renderCoreCharts(s);
+                chartsRenderedCore = true;
+            }
+            if (d.has_analytics) {
+                loadAnalytics(window.JOB_ID);
+            } else if (d.status === 'completed' || d.status === 'failed') {
+                ['chart-lifebar','chart-tap-intervals','chart-input-balance','chart-heatmap','chart-cursorspeed'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el && el.querySelector('.chart-skeleton')) el.innerHTML = '<div class="chart-error"><i class="fas fa-info-circle"></i> No frame data available for this replay</div>';
+                });
+            }
+        }
+
+        if (d.artifacts && d.artifacts.logs_url) {
+            currentLogsUrl = d.artifacts.logs_url;
+            await fetchLogs(d.artifacts.logs_url);
+        }
+
+        if (d.status === 'completed') {
+            setPipelineStage('done', false);
+            document.getElementById('progress-section').style.display = 'none';
+            document.getElementById('video-section').style.display = 'block';
+            let v = document.getElementById('v');
+            if (!v.getAttribute('src') && v.innerHTML.trim() === '') {
+                v.setAttribute('src', d.artifacts.video_url);
+                document.getElementById('d').href = d.artifacts.video_url;
+            }
+            return;
+        } else if (d.status === 'failed') {
+            setPipelineStage(currentPipelineStage, true);
+            document.getElementById('progress-bar').style.width = '100%';
+            document.getElementById('progress-bar').style.background = '#ff4d4d';
+            document.getElementById('progress-text').innerText = 'Render failed.';
+            document.getElementById('progress-text').style.color = '#ff4d4d';
+            if (d.error_message) {
+                document.getElementById('error-row').style.display = 'flex';
+                document.getElementById('detail-error').innerText = d.error_message;
+            }
+            return;
+        } else if (d.status === 'queued') {
+            setPipelineStage('queued', false);
+        } else if (d.status === 'downloading') {
+            setPipelineStage('setup', false);
+        } else if (d.status === 'rendering') {
+            if (currentPipelineStage === 'queued' || currentPipelineStage === 'setup') {
+                currentPipelineStage = 'render';
+            }
+            setPipelineStage(currentPipelineStage, false);
+        }
+
+        setTimeout(check, 3000);
+    } catch(e) { setTimeout(check, 3000); }
+}
+
+// ─── INIT ───
+document.addEventListener('DOMContentLoaded', () => {
+    const _initStatus = window.INIT_STATUS;
+    const _initError = window.INIT_ERROR;
+    setPipelineStage('queued', false);
+    if (_initStatus === 'completed') {
+        setPipelineStage('done', false);
+        document.getElementById('progress-section').style.display = 'none';
+        document.getElementById('video-section').style.display = 'block';
+    } else if (_initStatus === 'failed') {
+        setPipelineStage('queued', true);
+        document.getElementById('progress-bar').style.width = '100%';
+        document.getElementById('progress-bar').style.background = '#ff4d4d';
+        document.getElementById('progress-text').innerText = 'Render failed.';
+    }
+    if (_initError) {
+        document.getElementById('error-row').style.display = 'flex';
+    }
+    if (window.JOB_ID) {
+        check();
+    }
+});
