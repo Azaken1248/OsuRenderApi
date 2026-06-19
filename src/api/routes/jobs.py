@@ -4,7 +4,6 @@ import hashlib
 import json
 import time
 import logging
-from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import func, select, text
@@ -25,7 +24,6 @@ from src.db.session import get_db
 from src.api.utils import serialize_error
 from src.core.config import get_settings
 from src.core.limiter import limiter
-from src.core.storage import storage_client
 from src.core.metrics import analytics_requests_total
 
 router = APIRouter()
