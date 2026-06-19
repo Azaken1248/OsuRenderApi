@@ -114,8 +114,7 @@ jobs:
       - name: Generate CycloneDX SBOM
         run: |
           pip install cyclonedx-bom
-          cyclonedx-py requirements -r requirements.lock -o sbom.json --format json
-        continue-on-error: true
+          cyclonedx-py requirements requirements.lock -o sbom.json --of JSON
 
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4

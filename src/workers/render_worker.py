@@ -126,14 +126,36 @@ async def _process_render_job(job_id: str):
                             t_abs += event.time_delta
                             if t_abs < 0:
                                 continue
-                            frames.append({
-                                "t": t_abs,
-                                "x": int(event.x) if (game_mode == 0 and hasattr(event, "x")) else (round(event.x, 2) if hasattr(event, "x") else 0),
-                                "y": int(event.y) if (game_mode == 0 and hasattr(event, "y")) else (round(event.y, 2) if hasattr(event, "y") else 0),
-                                "keys": event.keys.value if hasattr(event, "keys") else 0
-                            })
+                            frames.append(
+                                {
+                                    "t": t_abs,
+                                    "x": (
+                                        int(event.x)
+                                        if (game_mode == 0 and hasattr(event, "x"))
+                                        else (
+                                            round(event.x, 2)
+                                            if hasattr(event, "x")
+                                            else 0
+                                        )
+                                    ),
+                                    "y": (
+                                        int(event.y)
+                                        if (game_mode == 0 and hasattr(event, "y"))
+                                        else (
+                                            round(event.y, 2)
+                                            if hasattr(event, "y")
+                                            else 0
+                                        )
+                                    ),
+                                    "keys": (
+                                        event.keys.value
+                                        if hasattr(event, "keys")
+                                        else 0
+                                    ),
+                                }
+                            )
                         frame_count = len(frames)
-                        
+
                         if frames:
                             frames_key = f"analytics/{job_id}_frames.json.gz"
                             frames_json = json_mod.dumps(frames).encode("utf-8")
@@ -145,8 +167,12 @@ async def _process_render_job(job_id: str):
                                 length=len(frames_gz),
                                 content_type="application/gzip",
                             )
-                            storage_operation_duration_seconds.labels(operation="upload_frames").observe(time.monotonic() - upload_start)
-                            logger.info(f"Uploaded {frame_count} frames ({len(frames_gz)} bytes gz) for job {job_id}")
+                            storage_operation_duration_seconds.labels(
+                                operation="upload_frames"
+                            ).observe(time.monotonic() - upload_start)
+                            logger.info(
+                                f"Uploaded {frame_count} frames ({len(frames_gz)} bytes gz) for job {job_id}"
+                            )
                 except Exception as e:
                     logger.warning(f"Frame extraction failed for job {job_id}: {e}")
                     frames_key = None

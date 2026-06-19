@@ -34,6 +34,12 @@ function escapeHtml(value) {
 }
 
 function showChartError(containerId, error) {
+    if (window.activeCharts && window.activeCharts[containerId]) {
+        try {
+            window.activeCharts[containerId].destroy();
+        } catch (e) {}
+        window.activeCharts[containerId] = null;
+    }
     const el = document.getElementById(containerId);
     if (!el) return;
     el.innerHTML = `<div class="chart-error">
@@ -44,6 +50,12 @@ function showChartError(containerId, error) {
 }
 
 function showChartEmpty(containerId, message) {
+    if (window.activeCharts && window.activeCharts[containerId]) {
+        try {
+            window.activeCharts[containerId].destroy();
+        } catch (e) {}
+        window.activeCharts[containerId] = null;
+    }
     const el = document.getElementById(containerId);
     if (!el) return;
     el.innerHTML = `<div class="chart-empty"><i class="fas fa-circle-info"></i><span>${escapeHtml(message)}</span></div>`;
@@ -62,6 +74,29 @@ function apexDefaults(overrides) {
         tooltip: { theme: 'dark' },
         legend: { labels: { colors: CHART_COLORS.muted } },
     }, overrides);
+}
+
+// Keep track of active chart instances to prevent ghost charts
+window.activeCharts = window.activeCharts || {};
+
+function renderChartSafely(containerId, options) {
+    const el = document.getElementById(containerId);
+    if (!el) return null;
+
+    if (window.activeCharts[containerId]) {
+        try {
+            window.activeCharts[containerId].destroy();
+        } catch (e) {
+            console.warn(`Failed to destroy chart ${containerId}:`, e);
+        }
+        window.activeCharts[containerId] = null;
+    }
+
+    el.innerHTML = '';
+    const chart = new ApexCharts(el, options);
+    window.activeCharts[containerId] = chart;
+    chart.render();
+    return chart;
 }
 
 function downsample(arr, maxPoints) {
@@ -109,7 +144,7 @@ function renderCoreCharts(stats) {
     const acc = calculateAccuracy(counts);
 
     try {
-        new ApexCharts(document.getElementById('chart-hits'), apexDefaults({
+        renderChartSafely('chart-hits', apexDefaults({
             chart: { type: 'donut', height: 260 },
             series: [counts.h300, counts.h100, counts.h50, counts.miss],
             labels: ['300', '100', '50', 'Miss'],
@@ -132,13 +167,13 @@ function renderCoreCharts(stats) {
                 },
             },
             legend: { position: 'bottom', labels: { colors: CHART_COLORS.muted } },
-        })).render();
+        }));
     } catch (e) {
         showChartError('chart-hits', e.message);
     }
 
     try {
-        new ApexCharts(document.getElementById('chart-accuracy'), apexDefaults({
+        renderChartSafely('chart-accuracy', apexDefaults({
             chart: { type: 'radialBar', height: 260 },
             series: [Number(acc.toFixed(2))],
             labels: ['Accuracy'],
@@ -159,7 +194,7 @@ function renderCoreCharts(stats) {
                 },
             },
             stroke: { lineCap: 'round' },
-        })).render();
+        }));
     } catch (e) {
         showChartError('chart-accuracy', e.message);
     }
@@ -170,7 +205,7 @@ function renderCoreCharts(stats) {
         const lostTo100 = counts.h100 * 200;
         const lostTo50 = counts.h50 * 250;
         const lostToMiss = counts.miss * 300;
-        new ApexCharts(document.getElementById('chart-judgement-impact'), apexDefaults({
+        renderChartSafely('chart-judgement-impact', apexDefaults({
             chart: { type: 'bar', height: 260, stacked: true, stackType: '100%' },
             series: [
                 { name: 'Earned', data: [earned] },
@@ -186,7 +221,7 @@ function renderCoreCharts(stats) {
             },
             yaxis: { labels: { show: false } },
             tooltip: { y: { formatter: value => `${Number(value).toLocaleString()} accuracy points` } },
-        })).render();
+        }));
     } catch (e) {
         showChartError('chart-judgement-impact', e.message);
     }
@@ -202,7 +237,7 @@ function renderLifeBar(lifeBar) {
         return;
     }
 
-    new ApexCharts(document.getElementById('chart-lifebar'), apexDefaults({
+    renderChartSafely('chart-lifebar', apexDefaults({
         chart: { type: 'area', height: 280 },
         series: [{ name: 'HP', data }],
         colors: [CHART_COLORS.red],
@@ -210,7 +245,7 @@ function renderLifeBar(lifeBar) {
         fill: { type: 'gradient', gradient: { opacityFrom: 0.42, opacityTo: 0.05, stops: [0, 90, 100] } },
         xaxis: { type: 'numeric', labels: { style: { colors: CHART_COLORS.muted }, formatter: value => `${(value / 1000).toFixed(0)}s` } },
         yaxis: { min: 0, max: 100, labels: { style: { colors: CHART_COLORS.muted }, formatter: value => `${value}%` } },
-    })).render();
+    }));
 }
 
 function renderInputCharts(frames) {
@@ -234,7 +269,7 @@ function renderInputCharts(frames) {
                 const bin = bins.find(item => delta >= item.min && delta < item.max);
                 if (bin) bin.count += 1;
             }
-            new ApexCharts(document.getElementById('chart-tap-intervals'), apexDefaults({
+            renderChartSafely('chart-tap-intervals', apexDefaults({
                 chart: { type: 'bar', height: 260 },
                 series: [{ name: 'Intervals', data: bins.map(bin => bin.count) }],
                 colors: [CHART_COLORS.cyan],
@@ -242,7 +277,7 @@ function renderInputCharts(frames) {
                 xaxis: { categories: bins.map(bin => bin.label), labels: { style: { colors: CHART_COLORS.muted } } },
                 yaxis: { labels: { style: { colors: CHART_COLORS.muted } } },
                 tooltip: { y: { formatter: value => `${value} intervals` } },
-            })).render();
+            }));
         }
     } catch (e) {
         showChartError('chart-tap-intervals', e.message);
@@ -253,7 +288,7 @@ function renderInputCharts(frames) {
         pressEvents.forEach(event => {
             keyCounts[event.key] += 1;
         });
-        new ApexCharts(document.getElementById('chart-input-balance'), apexDefaults({
+        renderChartSafely('chart-input-balance', apexDefaults({
             chart: { type: 'bar', height: 260 },
             series: [{ name: 'Presses', data: [keyCounts.K1, keyCounts.K2, keyCounts.M1, keyCounts.M2] }],
             colors: [CHART_COLORS.accent],
@@ -261,7 +296,7 @@ function renderInputCharts(frames) {
             xaxis: { categories: ['K1', 'K2', 'M1', 'M2'], labels: { style: { colors: CHART_COLORS.muted, fontWeight: 700 } } },
             yaxis: { labels: { style: { colors: CHART_COLORS.muted } } },
             tooltip: { y: { formatter: value => `${value} presses` } },
-        })).render();
+        }));
     } catch (e) {
         showChartError('chart-input-balance', e.message);
     }
@@ -303,7 +338,7 @@ function renderCursorCharts(frames) {
                 speedData.push({ x: current.t, y: Number(speed.toFixed(0)) });
             }
         }
-        new ApexCharts(document.getElementById('chart-cursorspeed'), apexDefaults({
+        renderChartSafely('chart-cursorspeed', apexDefaults({
             chart: { type: 'area', height: 300 },
             series: [{ name: 'Cursor speed', data: downsample(speedData, 450) }],
             colors: [CHART_COLORS.green],
@@ -312,7 +347,7 @@ function renderCursorCharts(frames) {
             xaxis: { type: 'numeric', labels: { style: { colors: CHART_COLORS.muted }, formatter: value => `${(value / 1000).toFixed(0)}s` } },
             yaxis: { labels: { style: { colors: CHART_COLORS.muted }, formatter: value => `${Number(value).toFixed(0)}` } },
             tooltip: { y: { formatter: value => `${Number(value).toFixed(0)} px/s` } },
-        })).render();
+        }));
     } catch (e) {
         showChartError('chart-cursorspeed', e.message);
     }
