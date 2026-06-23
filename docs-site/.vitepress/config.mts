@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress'
 import { withMermaid } from 'vitepress-plugin-mermaid'
 
 const SITE_URL = 'https://osu-render-api.vercel.app'
-const OG_IMAGE = `${SITE_URL}/og-image.png`
+const OG_IMAGE = `${SITE_URL}/mascot3.png`
 const SITE_TITLE = 'OsuRender API'
 const SITE_DESCRIPTION = 'Production-grade, distributed osu! replay rendering service — GPU-accelerated, event-driven, and battle-tested at scale.'
 
@@ -12,6 +12,7 @@ export default withMermaid(defineConfig({
   
   head: [
     // — Charset & viewport —
+    ['link', { rel: 'icon', type: 'image/png', href: '/mascot1.png' }],
     ['meta', { name: 'theme-color', content: '#ff66aa' }],
     ['meta', { name: 'author', content: 'Azaken' }],
     ['meta', { name: 'keywords', content: 'osu, osu!, replay, rendering, danser, api, gpu, modal, documentation' }],
@@ -79,6 +80,7 @@ export default withMermaid(defineConfig({
 
   themeConfig: {
     siteTitle: 'OsuRender API',
+    logo: '/mascot1.png',
     
     nav: [
       { text: 'Guide', link: '/src/getting-started/introduction' },

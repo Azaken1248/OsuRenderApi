@@ -6,11 +6,28 @@
     <title>OsuRender: {{ map_title }}</title>
     <meta name="description" content="Watch this osu! replay render powered by OsuRender Cloud API.">
     <meta name="theme-color" content="#ff66ab">
+    <link rel="icon" type="image/png" href="/static/mascot1.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="/static/view_player.css?v=6">
+    <style>
+        .nav-logo {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: url('/static/mascot1.png') center/cover;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 0.9rem;
+            color: #fff;
+            box-shadow: 0 0 20px rgba(255, 102, 171, 0.3);
+            position: relative;
+        }
+    </style>
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <script>
         window.JOB_ID = '{{ job_id }}';
@@ -25,7 +42,7 @@
 <nav class="nav">
     <div class="nav-inner">
         <a href="/" class="nav-brand">
-            <div class="nav-logo">oR</div>
+            <div class="nav-logo"></div>
             <span class="nav-title">OsuRender</span>
         </a>
         <div class="nav-links">

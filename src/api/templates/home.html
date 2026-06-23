@@ -8,6 +8,7 @@
     <meta name="description"
         content="High-quality osu! replay rendering powered by GPU-accelerated cloud infrastructure. Submit replays, get stunning videos.">
     <meta name="theme-color" content="#ff66ab">
+    <link rel="icon" type="image/png" href="/static/mascot1.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <!-- Switched to Exo 2 for that osu!lazer aesthetic -->
@@ -102,7 +103,7 @@
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            background: linear-gradient(135deg, var(--accent-pink), var(--accent-purple));
+            background: url('/static/mascot1.png') center/cover;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -774,7 +775,7 @@
     <nav class="nav" id="main-nav">
         <div class="nav-inner">
             <a href="/" class="nav-brand">
-                <div class="nav-logo">oR</div>
+                <div class="nav-logo"></div>
                 <span class="nav-title">OsuRender</span>
             </a>
             <div class="nav-links">
@@ -789,32 +790,39 @@
     <section class="hero" id="hero">
         <div class="hero-bg-circle hero-bg-circle-1"></div>
         <div class="hero-bg-circle hero-bg-circle-2"></div>
+        
+        <div style="display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 4rem; max-width: 1200px; z-index: 10;">
+            <div style="flex: 1; text-align: left;">
+                <div class="hero-badge">
+                    <span class="hero-badge-dot"></span>
+                    Cloud GPU Rendering
+                </div>
 
-        <div class="hero-badge">
-            <span class="hero-badge-dot"></span>
-            Cloud GPU Rendering
-        </div>
+                <h1 style="text-align: left;">
+                    Replay Rendering<br>
+                    <span class="gradient-text">as a Service</span>
+                </h1>
 
-        <h1>
-            Replay Rendering<br>
-            <span class="gradient-text">as a Service</span>
-        </h1>
+                <p class="hero-sub" style="text-align: left; margin-left: 0;">
+                    Submit your osu! replays and get stunning, high-quality video renders
+                    powered by GPU-accelerated cloud infrastructure.
+                </p>
 
-        <p class="hero-sub">
-            Submit your osu! replays and get stunning, high-quality video renders
-            powered by GPU-accelerated cloud infrastructure.
-        </p>
-
-        <div class="hero-actions">
-            <a href="/api/docs" class="btn btn--primary" id="cta-primary">
-                <span class="btn-icon"><i class="fas fa-bolt"></i></span>
-                Explore the API
-            </a>
-            <a href="https://docs.render.azaken.com" class="btn btn--secondary" target="_blank" rel="noopener"
-                id="cta-docs">
-                <span class="btn-icon"><i class="fas fa-book"></i></span>
-                Read Documentation
-            </a>
+                <div class="hero-actions" style="justify-content: flex-start;">
+                    <a href="/api/docs" class="btn btn--primary" id="cta-primary">
+                        <span class="btn-icon"><i class="fas fa-bolt"></i></span>
+                        Explore the API
+                    </a>
+                    <a href="https://docs.render.azaken.com" class="btn btn--secondary" target="_blank" rel="noopener"
+                        id="cta-docs">
+                        <span class="btn-icon"><i class="fas fa-book"></i></span>
+                        Read Documentation
+                    </a>
+                </div>
+            </div>
+            <div style="flex: 1; display: flex; justify-content: center; align-items: center;">
+                <img src="/static/mascot2.png" alt="OsuRender Mascot" style="max-width: 100%; height: auto; filter: drop-shadow(0 0 30px rgba(255, 102, 171, 0.4)); transform: rotate(5deg) scale(1.05); animation: float 6s ease-in-out infinite;">
+            </div>
         </div>
     </section>
 
